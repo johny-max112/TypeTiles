@@ -1,0 +1,63 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Tile Panel PNG Generator</title>
+    <style>
+      body { font-family: system-ui, sans-serif; padding: 16px; background: #111; color: #eee; }
+      canvas { border: 1px solid #444; image-rendering: pixelated; }
+      button { padding: 10px 14px; margin-top: 12px; }
+    </style>
+  </head>
+  <body>
+    <h2>tile-panel.png generator</h2>
+    <p>This generates a 9-slice friendly panel (corners + border + inner fill).</p>
+
+    <canvas id="c" width="96" height="96"></canvas><br />
+    <button id="dl">Download tile-panel.png</button>
+
+    <script>
+      const c = document.getElementById("c");
+      const ctx = c.getContext("2d");
+
+      // background (transparent)
+      ctx.clearRect(0, 0, c.width, c.height);
+
+      // panel base
+      const r = 18; // corner radius-ish area (for 9-slice borders)
+      const w = c.width, h = c.height;
+
+      // outer border
+      ctx.fillStyle = "#6b6b6b";
+      ctx.fillRect(0, 0, w, h);
+
+      // inner border
+      ctx.fillStyle = "#2e2e2e";
+      ctx.fillRect(3, 3, w - 6, h - 6);
+
+      // inner fill
+      ctx.fillStyle = "rgba(20,20,20,0.85)";
+      ctx.fillRect(7, 7, w - 14, h - 14);
+
+      // subtle top highlight
+      ctx.fillStyle = "rgba(255,255,255,0.10)";
+      ctx.fillRect(7, 7, w - 14, 10);
+
+      // subtle bottom shadow
+      ctx.fillStyle = "rgba(0,0,0,0.25)";
+      ctx.fillRect(7, h - 17, w - 14, 10);
+
+      // corner bolts (optional style)
+      ctx.fillStyle = "rgba(255,255,255,0.14)";
+      const bolt = (x,y)=>{ ctx.beginPath(); ctx.arc(x,y,2.5,0,Math.PI*2); ctx.fill(); };
+      bolt(12,12); bolt(w-12,12); bolt(12,h-12); bolt(w-12,h-12);
+
+      document.getElementById("dl").onclick = () => {
+        const a = document.createElement("a");
+        a.download = "tile-panel.png";
+        a.href = c.toDataURL("image/png");
+        a.click();
+      };
+    </script>
+  </body>
+</html>

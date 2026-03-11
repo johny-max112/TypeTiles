@@ -1,14 +1,16 @@
-export const WORDS = [
-   "deo",
-   "prog",
-   "dld",
-   "java",
-   "type",
-   "speed",
-   "code",
-   "hello",
-   "nice",
-   "react",
-   "angular",
-   "vue"
-]
+export const WORDS: string[] = [
+  "cat",
+  "dog",
+  "tree",
+  "hey",
+  "type",
+  "key",
+  "true",
+  "nice",
+  "wait",
+  "hi",
+  "fly",
+  "sound",
+  "busy",
+  "see",
+];
