@@ -4,6 +4,8 @@ import { mockMatchConfig } from "./lib/mockData";
 import Achievements from "./pages/Achievements";
 import Customize from "./pages/Customize";
 import Dashboard from "./pages/Index";
+import Loading from "./pages/Loading";
+import Welcome from "./pages/Welcome";
 import Friends from "./pages/Friends";
 import Game from "./pages/Game";
 import History from "./pages/History";
@@ -25,7 +27,9 @@ export default function App() {
   return (
     <AppShell>
       <Routes>
-        <Route path="/" element={<Dashboard />} />
+        <Route path="/" element={<Loading />} />
+        <Route path="/welcome" element={<Welcome />} />
+        <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/play" element={<Play />} />
         <Route path="/lobby" element={<Lobby />} />
         <Route path="/pre-match" element={<PreMatch />} />

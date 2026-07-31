@@ -13,4 +13,6 @@ export const WORDS: string[] = [
   "sound",
   "busy",
   "see",
+  "program",
+  "framework",
 ];
