@@ -1,14 +1,14 @@
 import { Menu, Trophy, X } from "lucide-react";
-import { useState, type PropsWithChildren } from "react";
-import { NavLink } from "react-router-dom";
+import { useState } from "react";
+import { NavLink, Outlet } from "react-router-dom";
 import homeIcon from "../assets/homeicon/home.png";
 import { HudBackground } from "./HudBackground";
 
 const navItems = [
-  { label: "Home", to: "/", icon: homeIcon, iconClassName: "h-5 w-5" },
-  { label: "Multiplayer", to: "/lobby", icon: "/figma/type-tiles-home/image33.png", iconClassName: "h-5 w-5" },
-  { label: "Results", to: "/results", icon: Trophy, iconClassName: "h-5 w-5" },
-  { label: "Profile", to: "/settings", icon: "/figma/type-tiles-home/image31.png", iconClassName: "h-5 w-5" },
+  { label: "Home", to: "/app", icon: homeIcon, iconClassName: "h-5 w-5", end: true },
+  { label: "Multiplayer", to: "/app/lobby", icon: "/figma/type-tiles-home/image33.png", iconClassName: "h-5 w-5" },
+  { label: "Results", to: "/app/results", icon: Trophy, iconClassName: "h-5 w-5" },
+  { label: "Profile", to: "/app/settings", icon: "/figma/type-tiles-home/image31.png", iconClassName: "h-5 w-5" },
 ] as const;
 
 function NavIcon({ icon, iconClassName }: { icon: (typeof navItems)[number]["icon"]; iconClassName: string }) {
@@ -20,7 +20,7 @@ function NavIcon({ icon, iconClassName }: { icon: (typeof navItems)[number]["ico
   return <Icon className={iconClassName} />;
 }
 
-export function AppShell({ children }: PropsWithChildren) {
+export function AppShell() {
   const [open, setOpen] = useState(false);
 
   return (
@@ -56,6 +56,7 @@ export function AppShell({ children }: PropsWithChildren) {
               <NavLink
                 key={item.to}
                 to={item.to}
+                end={Boolean((item as any).end)}
                 onClick={() => setOpen(false)}
                 className={({ isActive }) =>
                   [
@@ -86,7 +87,7 @@ export function AppShell({ children }: PropsWithChildren) {
             <div className="text-xs uppercase tracking-[0.3em] text-sky-300">Type Tiles</div>
           </header>
 
-          <main className="relative flex-1 pb-3">{children}</main>
+          <main className="relative flex-1 pb-3"><Outlet /></main>
         </div>
       </div>
     </div>

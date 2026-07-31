@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router-dom";
-import HudBackground from "../components/HudBackground";
+import { HudBackground } from "../components/HudBackground";
 
 export default function Welcome() {
   const nav = useNavigate();
@@ -13,8 +13,8 @@ export default function Welcome() {
         <p className="mb-6">Personalize your avatar, pick your favorite topic category, and dive into the words you love. Track your progress, climb the ranks, and become the typing champion you were always meant to be!</p>
         <p className="mb-8">Ready to start your typing journey? Create your account now and let the tiles fall!</p>
         <div className="flex gap-4">
-          <button className="px-6 py-2 bg-cyan-400 text-slate-900 rounded font-semibold" onClick={() => nav("/dashboard")}>Get Started</button>
-          <button className="px-6 py-2 border border-white/20 rounded" onClick={() => nav("/dashboard")}>Maybe later</button>
+          <button className="px-6 py-2 bg-cyan-400 text-slate-900 rounded font-semibold" onClick={() => nav("/app")}>Get Started</button>
+          <button className="px-6 py-2 border border-white/20 rounded" onClick={() => nav("/app")}>Maybe later</button>
         </div>
       </div>
     </div>

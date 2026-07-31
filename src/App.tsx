@@ -25,24 +25,26 @@ function GameRoute() {
 
 export default function App() {
   return (
-    <AppShell>
-      <Routes>
-        <Route path="/" element={<Loading />} />
-        <Route path="/welcome" element={<Welcome />} />
-        <Route path="/dashboard" element={<Dashboard />} />
-        <Route path="/play" element={<Play />} />
-        <Route path="/lobby" element={<Lobby />} />
-        <Route path="/pre-match" element={<PreMatch />} />
-        <Route path="/game" element={<GameRoute />} />
-        <Route path="/results" element={<Results />} />
-        <Route path="/history" element={<History />} />
-        <Route path="/customize" element={<Customize />} />
-        <Route path="/leaderboard" element={<Leaderboard />} />
-        <Route path="/achievements" element={<Achievements />} />
-        <Route path="/friends" element={<Friends />} />
-        <Route path="/settings" element={<Settings />} />
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
-    </AppShell>
+    <Routes>
+      <Route path="/" element={<Loading />} />
+      <Route path="/welcome" element={<Welcome />} />
+
+      <Route path="/app/*" element={<AppShell />}>
+        <Route index element={<Dashboard />} />
+        <Route path="play" element={<Play />} />
+        <Route path="lobby" element={<Lobby />} />
+        <Route path="pre-match" element={<PreMatch />} />
+        <Route path="game" element={<GameRoute />} />
+        <Route path="results" element={<Results />} />
+        <Route path="history" element={<History />} />
+        <Route path="customize" element={<Customize />} />
+        <Route path="leaderboard" element={<Leaderboard />} />
+        <Route path="achievements" element={<Achievements />} />
+        <Route path="friends" element={<Friends />} />
+        <Route path="settings" element={<Settings />} />
+      </Route>
+
+      <Route path="*" element={<Navigate to="/" replace />} />
+    </Routes>
   );
 }

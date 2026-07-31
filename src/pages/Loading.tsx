@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import HudBackground from "../components/HudBackground";
+import { HudBackground } from "../components/HudBackground";
 
 export default function Loading() {
   const nav = useNavigate();
