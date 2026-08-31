@@ -7,7 +7,7 @@ type Props = {
 
 export default function Game({ matchConfig }: Props) {
   return (
-    <section className="space-y-4">
+    <section className="flex h-full min-h-0 flex-col gap-4">
       <div className="hud-panel rounded-[2rem] px-5 py-4">
         <div className="text-xs uppercase tracking-[0.35em] text-emerald-300">Match</div>
         <div className="mt-2 flex flex-wrap gap-2 text-sm text-slate-300">

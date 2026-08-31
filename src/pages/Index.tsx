@@ -102,10 +102,10 @@ export default function Dashboard() {
   };
 
   return (
-    <section className="space-y-4">
+    <section className="h-full overflow-y-auto pb-4">
       <h1 className="px-1 text-[1.95rem] font-semibold tracking-[-0.03em] text-white sm:text-[2.15rem]">Welcome to Type Tiles!</h1>
 
-      <div className="grid gap-4 xl:grid-cols-[340px_minmax(0,1fr)]">
+      <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(270px,300px)_minmax(0,1fr)] xl:grid-cols-[340px_minmax(0,1fr)]">
         <div className="space-y-4">
           <article className="rounded-[10px] border border-[#3d3d3d]/70 bg-[#c3d9ed] px-4 py-3 text-slate-900 shadow-[0_20px_50px_rgba(5,8,24,0.35)]">
             <div className="flex items-center gap-3 sm:gap-4">
@@ -198,7 +198,7 @@ export default function Dashboard() {
             </Link>
           </div>
 
-          <div className="home-scroll max-h-[58vh] overflow-y-auto pr-1 xl:max-h-[60vh]">
+          <div className="pr-1">
             <div className="grid gap-[10px] sm:grid-cols-2 xl:grid-cols-3">
             {categories.map((category) => (
               <button
@@ -208,7 +208,7 @@ export default function Dashboard() {
                   setSelectedCategory(category.label);
                   setSelectedSpeed("Normal");
                 }}
-                className="relative aspect-[1/1] overflow-hidden rounded-[8px] border-2 border-[#1183bb] bg-[#1a2349] text-left shadow-[0_16px_30px_rgba(4,8,25,0.35)] transition hover:scale-[1.01] hover:border-sky-300"
+                className="relative aspect-[4/3] overflow-hidden rounded-[8px] border-2 border-[#1183bb] bg-[#1a2349] text-left shadow-[0_16px_30px_rgba(4,8,25,0.35)] transition hover:scale-[1.01] hover:border-sky-300 xl:aspect-[1/1]"
               >
                 {"solid" in category ? (
                   <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(70,62,191,0.95)_0%,rgba(47,35,149,0.95)_100%)]" />

@@ -7,7 +7,7 @@ export default function Loading() {
 
   useEffect(() => {
     const t = setTimeout(() => {
-      nav("/welcome", { replace: true });
+      nav("/app/game", { replace: true });
     }, 2000);
     return () => clearTimeout(t);
   }, [nav]);

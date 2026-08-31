@@ -24,9 +24,9 @@ export function AppShell() {
   const [open, setOpen] = useState(false);
 
   return (
-    <div className="relative min-h-screen overflow-hidden text-slate-100">
+    <div className="relative h-screen overflow-hidden text-slate-100">
       <HudBackground />
-      <div className="mx-auto flex min-h-screen max-w-[1600px] gap-4 p-4 lg:gap-6 lg:p-4">
+      <div className="mx-auto flex h-full min-h-0 max-w-[1600px] gap-4 p-4 lg:gap-6 lg:p-4">
         <aside
           className={`fixed inset-y-4 left-4 z-40 w-[17rem] overflow-hidden rounded-[1.5rem] border border-white/10 bg-[#141a3a]/95 p-5 shadow-[0_28px_60px_rgba(4,8,25,0.55)] backdrop-blur-xl transition-transform duration-300 lg:static lg:translate-x-0 ${open ? "translate-x-0" : "-translate-x-[115%] lg:translate-x-0"}`}
         >
@@ -74,7 +74,7 @@ export function AppShell() {
           </nav>
         </aside>
 
-        <div className="flex min-w-0 flex-1 flex-col lg:pl-0">
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col lg:pl-0">
           <header className="mb-4 flex items-center justify-between rounded-2xl border border-white/10 bg-[#141a3a]/90 px-4 py-3 shadow-[0_24px_50px_rgba(4,8,25,0.35)] backdrop-blur-xl lg:hidden">
             <button
               type="button"
@@ -87,7 +87,7 @@ export function AppShell() {
             <div className="text-xs uppercase tracking-[0.3em] text-sky-300">Type Tiles</div>
           </header>
 
-          <main className="relative flex-1 pb-3"><Outlet /></main>
+          <main className="relative min-h-0 flex-1 overflow-hidden"><Outlet /></main>
         </div>
       </div>
     </div>

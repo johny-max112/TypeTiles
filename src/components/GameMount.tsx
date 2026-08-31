@@ -44,11 +44,11 @@ export function GameMount({ matchConfig }: Props) {
   }, []);
 
   return (
-    <div className="relative min-h-[75vh] overflow-hidden rounded-[2rem] border border-white/10 bg-black/30">
+    <div className="relative min-h-0 flex-1 overflow-hidden rounded-[2rem] border border-white/10 bg-black/30">
       <div className="absolute left-4 top-4 z-10 rounded-2xl border border-emerald-400/30 bg-black/50 px-4 py-3 text-xs uppercase tracking-[0.25em] text-emerald-200">
         Match Config: {matchConfig.mode} / {matchConfig.difficulty} / {matchConfig.roundTime}s / {matchConfig.wordSet}
       </div>
-      <div ref={hostRef} className="game-stage min-h-[75vh] w-full" />
+      <div ref={hostRef} className="game-stage h-full min-h-0 w-full" />
     </div>
   );
 }
