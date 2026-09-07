@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { CheckCheck, Star, Zap } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { mockMatchConfig } from "../lib/mockData";
 
@@ -6,19 +7,19 @@ const assetRoot = "/figma/type-tiles-home";
 
 const statItems = [
   {
-    icon: `${assetRoot}/vector29.png`,
+    icon: Zap,
     label: "WPM",
     value: "164.2",
     valueClassName: "text-white",
   },
   {
-    icon: `${assetRoot}/subtract.png`,
+    icon: CheckCheck,
     label: "Accuracy",
     value: "99.2 %",
     valueClassName: "text-emerald-400",
   },
   {
-    icon: `${assetRoot}/star1.png`,
+    icon: Star,
     label: "Max Combo",
     value: "2,814",
     valueClassName: "text-amber-300",
@@ -46,12 +47,8 @@ type HomeProfile = {
   level: number;
 };
 
-function HomeStatIcon({ src, alt }: { src: string; alt: string }) {
-  return <img alt={alt} className="h-[26px] w-[26px] shrink-0 object-contain" src={src} />;
-}
-
-function LockBadge() {
-  return <img alt="" className="absolute left-1/2 top-1/2 h-[66px] w-[66px] -translate-x-1/2 -translate-y-1/2 opacity-90" src={`${assetRoot}/group8.png`} />;
+function HomeStatIcon({ icon: Icon, alt }: { icon: (typeof statItems)[number]["icon"]; alt: string }) {
+  return <Icon aria-label={alt} className="h-[26px] w-[26px] shrink-0 text-sky-500" />;
 }
 
 export default function Dashboard() {
@@ -105,9 +102,7 @@ export default function Dashboard() {
     <section className="h-full overflow-y-auto pb-4">
       <h1 className="px-1 text-[1.95rem] font-semibold tracking-[-0.03em] text-white sm:text-[2.15rem]">Welcome to Type Tiles!</h1>
 
-      <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(270px,300px)_minmax(0,1fr)] xl:grid-cols-[340px_minmax(0,1fr)]">
-        <div className="space-y-4">
-          <article className="rounded-[10px] border border-[#3d3d3d]/70 bg-[#c3d9ed] px-4 py-3 text-slate-900 shadow-[0_20px_50px_rgba(5,8,24,0.35)]">
+      <article className="mt-4 rounded-[10px] border border-[#3d3d3d]/70 bg-[#c3d9ed] px-4 py-3 text-slate-900 shadow-[0_20px_50px_rgba(5,8,24,0.35)]">
             <div className="flex items-center gap-3 sm:gap-4">
               <div className="h-[84px] w-[88px] shrink-0 overflow-hidden rounded-[9px] bg-[#4186c0]">
                 <img alt="Player avatar" className="h-full w-full object-cover object-[center_top]" src={`${assetRoot}/avatar.png`} />
@@ -147,13 +142,15 @@ export default function Dashboard() {
             >
               Edit Profile
             </button>
-          </article>
+      </article>
 
+      <div className="mt-4 grid gap-4 lg:grid-cols-[321px_minmax(0,1fr)] xl:gap-[35px]">
+        <div className="space-y-4">
           <article className="rounded-[10px] border border-[#2967a1] bg-[#1d234a] p-4 shadow-[0_16px_30px_rgba(4,8,25,0.35)]">
             <div className="space-y-4">
               {statItems.map((item) => (
                 <div key={item.label} className="grid grid-cols-[28px_1fr_auto] items-center gap-3">
-                  <HomeStatIcon alt={item.label} src={item.icon} />
+                  <HomeStatIcon alt={item.label} icon={item.icon} />
                   <div className="text-[1.05rem] font-medium text-white">{item.label}</div>
                   <div className={`text-[1.35rem] font-semibold tracking-[-0.04em] ${item.valueClassName}`}>{item.value}</div>
                 </div>
@@ -189,7 +186,7 @@ export default function Dashboard() {
         </div>
 
         <div className="space-y-4">
-          <div className="flex justify-start xl:justify-center">
+          <div className="flex justify-start">
             <Link
               to="/play"
               className="inline-flex min-w-[158px] items-center justify-center rounded-[8px] border border-[#bde9ff] bg-[#7357f1] px-6 py-3 text-[1rem] font-medium text-white shadow-[0_14px_30px_rgba(80,63,220,0.35)] transition hover:brightness-110"
@@ -224,7 +221,6 @@ export default function Dashboard() {
                   </div>
                 </div>
 
-                {category.label === "GENERAL" ? null : <LockBadge />}
               </button>
             ))}
             </div>

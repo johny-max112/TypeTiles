@@ -1,4 +1,4 @@
-import { Menu, Trophy, X } from "lucide-react";
+import { Dices, Menu, Trophy, UserRound, Users, X } from "lucide-react";
 import { useState } from "react";
 import { NavLink, Outlet } from "react-router-dom";
 import homeIcon from "../assets/homeicon/home.png";
@@ -6,9 +6,9 @@ import { HudBackground } from "./HudBackground";
 
 const navItems = [
   { label: "Home", to: "/app", icon: homeIcon, iconClassName: "h-5 w-5", end: true },
-  { label: "Multiplayer", to: "/app/lobby", icon: "/figma/type-tiles-home/image33.png", iconClassName: "h-5 w-5" },
+  { label: "Multiplayer", to: "/app/lobby", icon: Users, iconClassName: "h-5 w-5" },
   { label: "Results", to: "/app/results", icon: Trophy, iconClassName: "h-5 w-5" },
-  { label: "Profile", to: "/app/settings", icon: "/figma/type-tiles-home/image31.png", iconClassName: "h-5 w-5" },
+  { label: "Profile", to: "/app/settings", icon: UserRound, iconClassName: "h-5 w-5" },
 ] as const;
 
 function NavIcon({ icon, iconClassName }: { icon: (typeof navItems)[number]["icon"]; iconClassName: string }) {
@@ -26,9 +26,9 @@ export function AppShell() {
   return (
     <div className="relative h-screen overflow-hidden text-slate-100">
       <HudBackground />
-      <div className="mx-auto flex h-full min-h-0 max-w-[1600px] gap-4 p-4 lg:gap-6 lg:p-4">
+      <div className="mx-auto flex h-full min-h-0 max-w-[1600px] gap-4 p-4 lg:gap-0 lg:p-0">
         <aside
-          className={`fixed inset-y-4 left-4 z-40 w-[17rem] overflow-hidden rounded-[1.5rem] border border-white/10 bg-[#141a3a]/95 p-5 shadow-[0_28px_60px_rgba(4,8,25,0.55)] backdrop-blur-xl transition-transform duration-300 lg:static lg:translate-x-0 ${open ? "translate-x-0" : "-translate-x-[115%] lg:translate-x-0"}`}
+          className={`fixed inset-y-4 left-4 z-40 w-[17rem] overflow-hidden rounded-[1.5rem] border border-white/10 bg-[#141a3a]/95 p-5 shadow-[0_28px_60px_rgba(4,8,25,0.55)] backdrop-blur-xl transition-transform duration-300 lg:static lg:inset-y-0 lg:left-0 lg:w-[269px] lg:translate-x-0 lg:rounded-none lg:border-0 lg:border-r lg:border-white/30 lg:bg-transparent lg:p-[26px_19px_0_26px] lg:shadow-none lg:backdrop-blur-none ${open ? "translate-x-0" : "-translate-x-[115%] lg:translate-x-0"}`}
         >
           <div className="mb-8 flex items-start justify-between gap-4">
             <div>
@@ -37,9 +37,9 @@ export function AppShell() {
                   <div className="font-['Concert_One'] text-[2rem] tracking-[0.1em] text-white">TYPE</div>
                   <div className="font-['Concert_One'] text-[2rem] tracking-[0.1em] text-sky-400">TILES</div>
                 </div>
-                <img alt="" className="mt-1 h-9 w-9 shrink-0" src="/figma/type-tiles-home/group4.png" />
+                <Dices className="mt-1 h-9 w-9 shrink-0 rotate-[-18deg] text-sky-400" />
               </div>
-              <img alt="" className="mt-4 h-[1px] w-28 opacity-70" src="/figma/type-tiles-home/line1.png" />
+              <div className="mt-4 h-px w-28 bg-white/70" />
             </div>
             <button
               type="button"
@@ -74,7 +74,7 @@ export function AppShell() {
           </nav>
         </aside>
 
-        <div className="flex min-h-0 min-w-0 flex-1 flex-col lg:pl-0">
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col lg:pl-[54px] lg:pr-[48px]">
           <header className="mb-4 flex items-center justify-between rounded-2xl border border-white/10 bg-[#141a3a]/90 px-4 py-3 shadow-[0_24px_50px_rgba(4,8,25,0.35)] backdrop-blur-xl lg:hidden">
             <button
               type="button"
