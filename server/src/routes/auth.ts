@@ -46,6 +46,9 @@ router.post("/register", async (req: Request<{}, {}, RegisterBody>, res: Respons
     );
 
     const userId = result.lastID;
+    if (typeof userId !== "number") {
+      throw new Error("User registration did not return an ID");
+    }
 
     // Create user stats entry
     await db.run(`INSERT INTO user_stats (user_id) VALUES (?)`, [userId]);

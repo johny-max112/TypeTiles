@@ -1,14 +1,18 @@
 import express from "express";
 import cors from "cors";
+import { createServer } from "http";
 import "dotenv/config";
 import { initializeDatabase, closeDatabase } from "./db.js";
 import authRoutes from "./routes/auth.js";
 import matchesRoutes from "./routes/matches.js";
 import leaderboardRoutes from "./routes/leaderboard.js";
 import adminRoutes from "./routes/admin.js";
+import { attachLanServer } from "./lan.js";
 
 const app = express();
-const PORT = process.env.PORT || 3001;
+const httpServer = createServer(app);
+const lanServer = attachLanServer(httpServer);
+const PORT = Number(process.env.PORT || 3001);
 
 // Middleware
 app.use(cors({
@@ -42,9 +46,10 @@ async function start() {
     await initializeDatabase();
     console.log("✓ Database initialized");
 
-    app.listen(PORT, () => {
+    httpServer.listen(PORT, "0.0.0.0", () => {
       console.log(`\n🎮 TypeTiles Server running on http://localhost:${PORT}`);
       console.log(`📍 API: http://localhost:${PORT}/api`);
+      console.log(`📡 LAN WebSocket: ws://<HOST_IP>:${PORT}/ws`);
       console.log(`🛡️  Admin: http://localhost:${PORT}/api/admin`);
       console.log("\n💡 Tip: Make sure CLIENT_URL env matches your frontend URL\n");
     });
@@ -57,6 +62,8 @@ async function start() {
 // Graceful shutdown
 process.on("SIGINT", async () => {
   console.log("\n⏸️  Shutting down...");
+  lanServer.close();
+  httpServer.close();
   await closeDatabase();
   process.exit(0);
 });
