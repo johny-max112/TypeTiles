@@ -8,6 +8,7 @@ import { WordTarget } from "./game/WordTarget";
 export default class GameScene extends Phaser.Scene {
   private readonly WATER_FRAME_SIZE = 1000;
   private readonly WATER_LAST_FRAME = 3;
+  private readonly MATCH_DURATION_SECONDS = 60;
 
   // === TUNING ===
   private readonly WORD_FONT_SIZE = 22;
@@ -19,6 +20,7 @@ export default class GameScene extends Phaser.Scene {
 
   private typedDisplay!: Phaser.GameObjects.Text;
   private hudText!: Phaser.GameObjects.Text;
+  private gameOverDisplay!: Phaser.GameObjects.Text;
   private pauseMenu!: PauseMenu;
   private wordTarget!: WordTarget;
   private waterEffects!: WaterEffects;
@@ -26,6 +28,12 @@ export default class GameScene extends Phaser.Scene {
   private activeWord = "";
   private typedText = "";
   private score = 0;
+  private remainingSeconds = this.MATCH_DURATION_SECONDS;
+  private elapsedSeconds = 0;
+  private completedWords = 0;
+  private correctKeystrokes = 0;
+  private incorrectKeystrokes = 0;
+  private gameOver = false;
   private wordX = 0;
   private wordY = 60;
   private lastLane: Lane = "center";
@@ -64,6 +72,19 @@ export default class GameScene extends Phaser.Scene {
       .setOrigin(0.5)
       .setDepth(10);
 
+    this.gameOverDisplay = this.add
+      .text(this.scale.width / 2, this.scale.height / 2, "", {
+        fontFamily: "monospace",
+        fontSize: "24px",
+        color: "#ffffff",
+        backgroundColor: "rgba(0,0,0,0.85)",
+        align: "center",
+        padding: { x: 24, y: 18 },
+      })
+      .setOrigin(0.5)
+      .setDepth(100)
+      .setVisible(false);
+
     this.pauseMenu = new PauseMenu(this);
     this.waterEffects = new WaterEffects(this, this.WATER_LAST_FRAME);
     this.waterEffects.ensureAnimations();
@@ -88,6 +109,7 @@ export default class GameScene extends Phaser.Scene {
 
     this.scale.on("resize", (gameSize: Phaser.Structs.Size) => {
       this.typedDisplay.setPosition(gameSize.width / 2, gameSize.height - 80);
+      this.gameOverDisplay.setPosition(gameSize.width / 2, gameSize.height / 2);
       this.pauseMenu.layout(gameSize.width, gameSize.height);
 
       this.wordX = getLaneX(gameSize.width, this.lastLane);
@@ -96,9 +118,18 @@ export default class GameScene extends Phaser.Scene {
   }
 
   update(_: number, delta: number): void {
-    if (this.pauseMenu.isPaused) return;
+    if (this.pauseMenu.isPaused || this.gameOver) return;
 
     const dt = delta / 1000;
+    this.elapsedSeconds = Math.min(this.MATCH_DURATION_SECONDS, this.elapsedSeconds + dt);
+    this.remainingSeconds = Math.max(0, this.MATCH_DURATION_SECONDS - this.elapsedSeconds);
+    this.updateHud();
+
+    if (this.remainingSeconds <= 0) {
+      this.endMatch();
+      return;
+    }
+
     this.wordY += this.fallSpeedPxPerSec * dt;
     this.wordTarget.setPosition(this.wordX, this.wordY);
 
@@ -126,7 +157,7 @@ export default class GameScene extends Phaser.Scene {
   }
 
   private handleTyping(key: string): void {
-    if (this.pauseMenu.isPaused) return;
+    if (this.pauseMenu.isPaused || this.gameOver) return;
 
     if (key === "Backspace") {
       if (this.typedText.length > 0) {
@@ -160,6 +191,7 @@ export default class GameScene extends Phaser.Scene {
     this.typedDisplay.setText(this.typedText);
 
     if (this.activeWord.toLowerCase().startsWith(this.typedText.toLowerCase())) {
+      this.correctKeystrokes += 1;
       this.typedDisplay.setColor("#00ff00");
       this.refreshWordSplit();
 
@@ -167,6 +199,7 @@ export default class GameScene extends Phaser.Scene {
         this.waterEffects.playSplash(this.wordX, this.wordY, 22);
 
         this.score += 10;
+        this.completedWords += 1;
         this.updateHud();
         this.spawnWord();
       }
@@ -184,6 +217,7 @@ export default class GameScene extends Phaser.Scene {
   }
 
   private onWrongKey(): void {
+    this.incorrectKeystrokes += 1;
     this.score -= 2;
     this.updateHud();
 
@@ -204,6 +238,27 @@ export default class GameScene extends Phaser.Scene {
   }
 
   private updateHud(): void {
-    this.hudText.setText(`Score: ${this.score}`);
+    const elapsedMinutes = this.elapsedSeconds / 60;
+    const wpm = elapsedMinutes > 0 ? this.correctKeystrokes / 5 / elapsedMinutes : 0;
+    const totalKeystrokes = this.correctKeystrokes + this.incorrectKeystrokes;
+    const accuracy = totalKeystrokes > 0 ? (this.correctKeystrokes / totalKeystrokes) * 100 : 0;
+
+    this.hudText.setText(
+      `Score: ${this.score}  Time: ${Math.ceil(this.remainingSeconds)}  WPM: ${wpm.toFixed(1)}  Accuracy: ${accuracy.toFixed(1)}%`,
+    );
+  }
+
+  private endMatch(): void {
+    this.gameOver = true;
+    const elapsedMinutes = this.elapsedSeconds / 60;
+    const wpm = elapsedMinutes > 0 ? this.correctKeystrokes / 5 / elapsedMinutes : 0;
+    const totalKeystrokes = this.correctKeystrokes + this.incorrectKeystrokes;
+    const accuracy = totalKeystrokes > 0 ? (this.correctKeystrokes / totalKeystrokes) * 100 : 0;
+
+    this.gameOverDisplay
+      .setText(
+        `GAME OVER\n\nScore: ${this.score}\nWPM: ${wpm.toFixed(1)}\nAccuracy: ${accuracy.toFixed(1)}%\nCompleted words: ${this.completedWords}`,
+      )
+      .setVisible(true);
   }
 }
