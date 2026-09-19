@@ -1,31 +1,11 @@
-import { useMemo, useState } from "react";
-import { CheckCheck, Star, Zap } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { CheckCheck, Star, Zap, type LucideIcon } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { mockMatchConfig } from "../lib/mockData";
 import { usePlayerAuth } from "../lib/PlayerAuthContext";
+import { getPlayerRank, type PlayerStats } from "../lib/playerApi";
 
 const assetRoot = "/figma/type-tiles-home";
-
-const statItems = [
-  {
-    icon: Zap,
-    label: "WPM",
-    value: "164.2",
-    valueClassName: "text-white",
-  },
-  {
-    icon: CheckCheck,
-    label: "Accuracy",
-    value: "99.2 %",
-    valueClassName: "text-emerald-400",
-  },
-  {
-    icon: Star,
-    label: "Max Combo",
-    value: "2,814",
-    valueClassName: "text-amber-300",
-  },
-] as const;
 
 const categories = [
   { label: "CORPORATE", image: `${assetRoot}/image4.png`, dimmed: true },
@@ -48,16 +28,34 @@ type HomeProfile = {
   level: number;
 };
 
-function HomeStatIcon({ icon: Icon, alt }: { icon: (typeof statItems)[number]["icon"]; alt: string }) {
+function HomeStatIcon({ icon: Icon, alt }: { icon: LucideIcon; alt: string }) {
   return <Icon aria-label={alt} className="h-[26px] w-[26px] shrink-0 text-sky-500" />;
 }
 
 export default function Dashboard() {
   const navigate = useNavigate();
-  const { user } = usePlayerAuth();
+  const { user, stats: restoredStats } = usePlayerAuth();
+  const [dashboardStats, setDashboardStats] = useState<PlayerStats | null>(restoredStats);
+  const [rank, setRank] = useState<number | null>(null);
+  const [statsError, setStatsError] = useState("");
+
+  useEffect(() => {
+    getPlayerRank()
+      .then((response) => {
+        setDashboardStats(response.stats);
+        setRank(response.rank);
+      })
+      .catch((error) => setStatsError(error instanceof Error ? error.message : "Unable to load stats"));
+  }, []);
+
+  const statItems = [
+    { icon: Zap, label: "Best WPM", value: dashboardStats ? String(dashboardStats.best_wpm) : "...", valueClassName: "text-white" },
+    { icon: CheckCheck, label: "Accuracy", value: dashboardStats ? `${dashboardStats.avg_accuracy.toFixed(1)}%` : "...", valueClassName: "text-emerald-400" },
+    { icon: Star, label: "Max Combo", value: dashboardStats ? String(dashboardStats.top_combo) : "...", valueClassName: "text-amber-300" },
+  ] as const;
   const [profile, setProfile] = useState<HomeProfile>({
     name: user?.displayName || user?.username || "Player",
-    rank: "Rank # 1 Global",
+    rank: "Rank # — Global",
     status: "Online",
     level: 42,
   });
@@ -114,7 +112,7 @@ export default function Dashboard() {
                 <div className="text-[0.7rem] uppercase tracking-[0.16em] text-[#3d3d3d]">Player</div>
                 <div className="mt-1 truncate text-[1.85rem] font-semibold leading-none tracking-[-0.03em] text-black">{profile.name}</div>
                 <div className="mt-3 flex flex-wrap items-center gap-2 text-[0.68rem] uppercase tracking-[0.12em] text-[#3d3d3d]">
-                  <span className="font-semibold text-[#3d3d3d]">{profile.rank}</span>
+                  <span className="font-semibold text-[#3d3d3d]">{rank ? `Rank # ${rank} Global` : profile.rank}</span>
                   <span className="opacity-70">|</span>
                   <span>Status:</span>
                   <span className="text-emerald-500">{profile.status}</span>
@@ -158,6 +156,7 @@ export default function Dashboard() {
                 </div>
               ))}
             </div>
+            {statsError ? <div className="mt-3 text-xs text-amber-300">{statsError}</div> : null}
           </article>
 
           <article className="relative overflow-hidden rounded-[10px] border border-[#2967a1] bg-[#1d234a] p-4 shadow-[0_16px_30px_rgba(4,8,25,0.35)]">

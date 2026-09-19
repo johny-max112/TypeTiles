@@ -5,6 +5,7 @@ import {
   loginPlayer,
   PLAYER_TOKEN_KEY,
   registerPlayer,
+  type PlayerStats,
   type PlayerUser,
 } from "./playerApi";
 
@@ -17,6 +18,7 @@ type RegisterInput = {
 
 type PlayerAuthContextValue = {
   user: PlayerUser | null;
+  stats: PlayerStats | null;
   isLoading: boolean;
   login: (username: string, password: string) => Promise<void>;
   register: (input: RegisterInput) => Promise<void>;
@@ -27,6 +29,7 @@ const PlayerAuthContext = createContext<PlayerAuthContextValue | null>(null);
 
 export function PlayerAuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<PlayerUser | null>(null);
+  const [stats, setStats] = useState<PlayerStats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -37,10 +40,14 @@ export function PlayerAuthProvider({ children }: { children: ReactNode }) {
     }
 
     getCurrentPlayer(token)
-      .then(({ user: restoredUser }) => setUser(restoredUser))
+      .then(({ user: restoredUser, stats: restoredStats }) => {
+        setUser(restoredUser);
+        setStats(restoredStats ?? null);
+      })
       .catch(() => {
         localStorage.removeItem(PLAYER_TOKEN_KEY);
         setUser(null);
+        setStats(null);
       })
       .finally(() => setIsLoading(false));
   }, []);
@@ -48,23 +55,27 @@ export function PlayerAuthProvider({ children }: { children: ReactNode }) {
   const value = useMemo<PlayerAuthContextValue>(
     () => ({
       user,
+      stats,
       isLoading,
       login: async (username, password) => {
         const response = await loginPlayer(username, password);
         localStorage.setItem(PLAYER_TOKEN_KEY, response.token);
         setUser(response.user);
+        setStats(null);
       },
       register: async (input) => {
         const response = await registerPlayer(input);
         localStorage.setItem(PLAYER_TOKEN_KEY, response.token);
         setUser(response.user);
+        setStats(null);
       },
       logout: () => {
         localStorage.removeItem(PLAYER_TOKEN_KEY);
         setUser(null);
+        setStats(null);
       },
     }),
-    [isLoading, user],
+    [isLoading, stats, user],
   );
 
   return <PlayerAuthContext.Provider value={value}>{children}</PlayerAuthContext.Provider>;

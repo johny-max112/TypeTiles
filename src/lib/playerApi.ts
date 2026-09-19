@@ -12,6 +12,43 @@ export type PlayerUser = {
   role: string;
 };
 
+export type PlayerStats = {
+  games_played: number;
+  wins: number;
+  losses: number;
+  total_score: number;
+  best_wpm: number;
+  avg_accuracy: number;
+  top_combo: number;
+};
+
+export type MatchHistoryRow = {
+  id: number;
+  mode: string;
+  difficulty: string;
+  round_time: number;
+  word_set: string;
+  status: string;
+  created_at: string;
+  score: number;
+  wpm: number;
+  accuracy: number;
+  position: number | null;
+};
+
+export type LeaderboardRow = {
+  id: number;
+  username: string;
+  display_name: string;
+  tier: string;
+  total_score: number;
+  games_played: number;
+  best_wpm: number;
+  avg_accuracy: number;
+  top_combo?: number;
+  rank?: number;
+};
+
 export type CreateMatchInput = {
   mode: string;
   difficulty: string;
@@ -38,7 +75,7 @@ type AuthResponse = {
 
 type MeResponse = {
   user: PlayerUser;
-  stats?: unknown;
+  stats?: PlayerStats;
 };
 
 async function request<T>(path: string, options: RequestInit = {}, token?: string): Promise<T> {
@@ -94,6 +131,19 @@ export function submitPlayerMatchResult(input: SubmitMatchResultInput): Promise<
     method: "POST",
     body: JSON.stringify(input),
   });
+}
+
+export function getPlayerHistory(): Promise<{ history: MatchHistoryRow[] }> {
+  return authenticatedRequest<{ history: MatchHistoryRow[] }>("/users/history");
+}
+
+export function getPlayerRank(): Promise<{ rank: number; stats: PlayerStats }> {
+  return authenticatedRequest<{ rank: number; stats: PlayerStats }>("/users/me/rank");
+}
+
+export function getLeaderboard(tier?: string): Promise<{ leaderboard: LeaderboardRow[]; tier?: string }> {
+  const path = tier ? `/leaderboard/tier/${encodeURIComponent(tier)}` : "/leaderboard";
+  return request<{ leaderboard: LeaderboardRow[]; tier?: string }>(path);
 }
 
 export async function authenticatedRequest<T>(path: string, options: RequestInit = {}): Promise<T> {
