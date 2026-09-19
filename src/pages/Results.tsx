@@ -10,7 +10,8 @@ const breakdown = [
 
 export default function Results() {
   const location = useLocation();
-  const result = (location.state as { result?: GameResult } | null)?.result;
+  const state = location.state as { result?: GameResult; persistenceStatus?: "saved" | "error" } | null;
+  const result = state?.result;
   const resultBreakdown = result
     ? [
         ["Accuracy", `${result.accuracy.toFixed(1)}%`],
@@ -34,6 +35,8 @@ export default function Results() {
             </div>
           ))}
         </div>
+        {state?.persistenceStatus === "saved" ? <div className="mt-4 text-sm text-emerald-300">Match saved.</div> : null}
+        {state?.persistenceStatus === "error" ? <div className="mt-4 text-sm text-amber-300">Match result could not be saved.</div> : null}
         <div className="mt-5 flex flex-wrap gap-3">
           <Link to="/app/play" className="rounded-full bg-emerald-400 px-4 py-3 font-semibold text-slate-950">Play Again</Link>
           <Link to="/app" className="rounded-full border border-white/10 bg-white/5 px-4 py-3 text-white">Dashboard</Link>

@@ -1,6 +1,7 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { mockMatchConfig } from "../lib/mockData";
+import { createPlayerMatch } from "../lib/playerApi";
 
 export default function PreMatch() {
   const navigate = useNavigate();
@@ -14,26 +15,52 @@ export default function PreMatch() {
     )?.matchConfig ?? mockMatchConfig;
 
   const [countdown, setCountdown] = useState(3);
+  const [matchId, setMatchId] = useState<number | null>(null);
+  const [error, setError] = useState("");
+  const matchCreationRef = useRef<ReturnType<typeof createPlayerMatch> | null>(null);
 
   useEffect(() => {
-    const timer = window.setInterval(() => {
-      setCountdown((value) => {
-        if (value <= 1) {
-          window.clearInterval(timer);
-
-          // Game is nested under /app/* in App.tsx
-          navigate("/app/game", {
-            state: { matchConfig },
-          });
-
-          return 0;
-        }
-
-        return value - 1;
+    let cancelled = false;
+    let timer: number | undefined;
+    if (!matchCreationRef.current) {
+      matchCreationRef.current = createPlayerMatch({
+        mode: matchConfig.mode,
+        difficulty: matchConfig.difficulty,
+        roundTime: matchConfig.roundTime,
+        wordSet: matchConfig.wordSet,
       });
-    }, 1000);
+    }
 
-    return () => window.clearInterval(timer);
+    matchCreationRef.current
+      .then(({ matchId: createdMatchId }) => {
+        if (cancelled) return;
+        setMatchId(createdMatchId);
+
+        timer = window.setInterval(() => {
+          setCountdown((value) => {
+            if (value <= 1) {
+              window.clearInterval(timer);
+              navigate("/app/game", {
+                state: { matchConfig, matchId: createdMatchId },
+              });
+              return 0;
+            }
+
+            return value - 1;
+          });
+        }, 1000);
+
+      })
+      .catch((requestError) => {
+        if (!cancelled) {
+          setError(requestError instanceof Error ? requestError.message : "Unable to create match");
+        }
+      });
+
+    return () => {
+      cancelled = true;
+      if (timer !== undefined) window.clearInterval(timer);
+    };
   }, [matchConfig, navigate]);
 
   return (
@@ -43,8 +70,10 @@ export default function PreMatch() {
       </div>
 
       <h1 className="mt-2 text-4xl font-semibold text-white">
-        Deploying in {countdown}
+        {error ? "Unable to start match" : matchId ? `Deploying in ${countdown}` : "Creating match..."}
       </h1>
+
+      {error ? <p className="mt-3 text-red-300">{error}</p> : null}
 
       <div className="mt-6 grid gap-4 lg:grid-cols-[0.8fr_1.2fr]">
         <div className="rounded-[1.5rem] border border-white/10 bg-white/[0.03] p-5 text-left text-slate-300">

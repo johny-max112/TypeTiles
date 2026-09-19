@@ -1,13 +1,40 @@
 import { GameMount } from "../components/GameMount";
 import type { MatchConfig } from "../lib/mockData";
 import { useNavigate } from "react-router-dom";
+import { useRef } from "react";
+import type { GameResult } from "../scenes/GameScene";
+import { submitPlayerMatchResult } from "../lib/playerApi";
 
 type Props = {
   matchConfig: MatchConfig;
+  matchId?: number;
 };
 
-export default function Game({ matchConfig }: Props) {
+export default function Game({ matchConfig, matchId }: Props) {
   const navigate = useNavigate();
+  const submissionStartedRef = useRef(false);
+
+  const handleGameOver = async (result: GameResult) => {
+    if (submissionStartedRef.current) return;
+    submissionStartedRef.current = true;
+
+    if (matchId === undefined) {
+      navigate("/app/results", { state: { result, persistenceStatus: "error" } });
+      return;
+    }
+
+    try {
+      await submitPlayerMatchResult({
+        matchId,
+        score: result.score,
+        wpm: result.wpm,
+        accuracy: result.accuracy,
+      });
+      navigate("/app/results", { state: { result, persistenceStatus: "saved" } });
+    } catch {
+      navigate("/app/results", { state: { result, persistenceStatus: "error" } });
+    }
+  };
 
   return (
     <section className="flex h-full min-h-0 flex-col gap-4">
@@ -23,7 +50,7 @@ export default function Game({ matchConfig }: Props) {
 
       <GameMount
         matchConfig={matchConfig}
-        onGameOver={(result) => navigate("/app/results", { state: { result } })}
+        onGameOver={handleGameOver}
       />
     </section>
   );

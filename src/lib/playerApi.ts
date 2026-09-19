@@ -12,6 +12,25 @@ export type PlayerUser = {
   role: string;
 };
 
+export type CreateMatchInput = {
+  mode: string;
+  difficulty: string;
+  roundTime: number;
+  wordSet: string;
+};
+
+export type CreateMatchResponse = CreateMatchInput & {
+  matchId: number;
+  status: string;
+};
+
+export type SubmitMatchResultInput = {
+  matchId: number;
+  score: number;
+  wpm: number;
+  accuracy: number;
+};
+
 type AuthResponse = {
   token: string;
   user: PlayerUser;
@@ -61,6 +80,20 @@ export function loginPlayer(username: string, password: string): Promise<AuthRes
 
 export function getCurrentPlayer(token: string): Promise<MeResponse> {
   return request<MeResponse>("/auth/me", {}, token);
+}
+
+export function createPlayerMatch(input: CreateMatchInput): Promise<CreateMatchResponse> {
+  return authenticatedRequest<CreateMatchResponse>("/matches", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
+export function submitPlayerMatchResult(input: SubmitMatchResultInput): Promise<unknown> {
+  return authenticatedRequest<unknown>(`/matches/${input.matchId}/submit`, {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
 }
 
 export async function authenticatedRequest<T>(path: string, options: RequestInit = {}): Promise<T> {

@@ -20,9 +20,9 @@ import Settings from "./pages/Settings";
 
 function GameRoute() {
   const location = useLocation();
-  const state = (location.state as { matchConfig?: typeof mockMatchConfig } | null)?.matchConfig;
+  const state = location.state as { matchConfig?: typeof mockMatchConfig; matchId?: number } | null;
 
-  return <Game matchConfig={state ?? mockMatchConfig} />;
+  return <Game matchConfig={state?.matchConfig ?? mockMatchConfig} matchId={state?.matchId} />;
 }
 
 function ProtectedApp() {
