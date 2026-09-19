@@ -1,11 +1,14 @@
 import { GameMount } from "../components/GameMount";
 import type { MatchConfig } from "../lib/mockData";
+import { useNavigate } from "react-router-dom";
 
 type Props = {
   matchConfig: MatchConfig;
 };
 
 export default function Game({ matchConfig }: Props) {
+  const navigate = useNavigate();
+
   return (
     <section className="flex h-full min-h-0 flex-col gap-4">
       <div className="hud-panel rounded-[2rem] px-5 py-4">
@@ -18,7 +21,10 @@ export default function Game({ matchConfig }: Props) {
         </div>
       </div>
 
-      <GameMount matchConfig={matchConfig} />
+      <GameMount
+        matchConfig={matchConfig}
+        onGameOver={(result) => navigate("/app/results", { state: { result } })}
+      />
     </section>
   );
 }

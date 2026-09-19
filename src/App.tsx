@@ -1,6 +1,8 @@
 import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { AppShell } from "./components/AppShell";
+import PlayerAuth from "./components/PlayerAuth";
 import { mockMatchConfig } from "./lib/mockData";
+import { usePlayerAuth } from "./lib/PlayerAuthContext";
 import Achievements from "./pages/Achievements";
 import Customize from "./pages/Customize";
 import Dashboard from "./pages/Index";
@@ -23,13 +25,30 @@ function GameRoute() {
   return <Game matchConfig={state ?? mockMatchConfig} />;
 }
 
+function ProtectedApp() {
+  const location = useLocation();
+  const { user, isLoading } = usePlayerAuth();
+
+  if (isLoading) {
+    return <div className="min-h-screen bg-slate-900 text-white" />;
+  }
+
+  if (!user) {
+    return <Navigate to="/login" replace state={{ from: location.pathname }} />;
+  }
+
+  return <AppShell />;
+}
+
 export default function App() {
   return (
     <Routes>
       <Route path="/" element={<Loading />} />
       <Route path="/welcome" element={<Welcome />} />
+      <Route path="/login" element={<PlayerAuth />} />
+      <Route path="/register" element={<PlayerAuth />} />
 
-      <Route path="/app/*" element={<AppShell />}>
+      <Route path="/app/*" element={<ProtectedApp />}>
         <Route index element={<Dashboard />} />
         <Route path="play" element={<Play />} />
         <Route path="lobby" element={<Lobby />} />

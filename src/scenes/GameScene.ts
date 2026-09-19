@@ -4,11 +4,28 @@ import { PauseMenu } from "./game/PauseMenu";
 import { getLaneX, pickLaneNotSame, type Lane } from "./game/lanes";
 import { WaterEffects, WATER_TEXTURE_KEY } from "./game/WaterEffects";
 import { WordTarget } from "./game/WordTarget";
+import type { MatchConfig } from "../lib/mockData";
+
+export type GameResult = {
+  score: number;
+  wpm: number;
+  accuracy: number;
+  completedWords: number;
+  mode: string;
+  difficulty: string;
+  roundTime: number;
+  wordSet: string;
+};
+
+type GameSceneInitData = {
+  matchConfig: MatchConfig;
+  onGameOver: (result: GameResult) => void;
+};
 
 export default class GameScene extends Phaser.Scene {
   private readonly WATER_FRAME_SIZE = 1000;
   private readonly WATER_LAST_FRAME = 3;
-  private readonly MATCH_DURATION_SECONDS = 60;
+  private matchDurationSeconds = 60;
 
   // === TUNING ===
   private readonly WORD_FONT_SIZE = 22;
@@ -24,15 +41,18 @@ export default class GameScene extends Phaser.Scene {
   private pauseMenu!: PauseMenu;
   private wordTarget!: WordTarget;
   private waterEffects!: WaterEffects;
+  private matchConfig!: MatchConfig;
+  private onGameOver!: (result: GameResult) => void;
 
   private activeWord = "";
   private typedText = "";
   private score = 0;
-  private remainingSeconds = this.MATCH_DURATION_SECONDS;
+  private remainingSeconds = 60;
   private elapsedSeconds = 0;
   private completedWords = 0;
   private correctKeystrokes = 0;
   private incorrectKeystrokes = 0;
+  private completedCharacters = 0;
   private gameOver = false;
   private wordX = 0;
   private wordY = 60;
@@ -40,6 +60,13 @@ export default class GameScene extends Phaser.Scene {
 
   constructor() {
     super("GameScene");
+  }
+
+  init({ matchConfig, onGameOver }: GameSceneInitData): void {
+    this.matchConfig = matchConfig;
+    this.onGameOver = onGameOver;
+    this.matchDurationSeconds = matchConfig.roundTime;
+    this.remainingSeconds = this.matchDurationSeconds;
   }
 
   preload(): void {
@@ -121,8 +148,8 @@ export default class GameScene extends Phaser.Scene {
     if (this.pauseMenu.isPaused || this.gameOver) return;
 
     const dt = delta / 1000;
-    this.elapsedSeconds = Math.min(this.MATCH_DURATION_SECONDS, this.elapsedSeconds + dt);
-    this.remainingSeconds = Math.max(0, this.MATCH_DURATION_SECONDS - this.elapsedSeconds);
+    this.elapsedSeconds = Math.min(this.matchDurationSeconds, this.elapsedSeconds + dt);
+    this.remainingSeconds = Math.max(0, this.matchDurationSeconds - this.elapsedSeconds);
     this.updateHud();
 
     if (this.remainingSeconds <= 0) {
@@ -200,6 +227,7 @@ export default class GameScene extends Phaser.Scene {
 
         this.score += 10;
         this.completedWords += 1;
+        this.completedCharacters += this.activeWord.length;
         this.updateHud();
         this.spawnWord();
       }
@@ -239,7 +267,7 @@ export default class GameScene extends Phaser.Scene {
 
   private updateHud(): void {
     const elapsedMinutes = this.elapsedSeconds / 60;
-    const wpm = elapsedMinutes > 0 ? this.correctKeystrokes / 5 / elapsedMinutes : 0;
+    const wpm = elapsedMinutes > 0 ? this.completedCharacters / 5 / elapsedMinutes : 0;
     const totalKeystrokes = this.correctKeystrokes + this.incorrectKeystrokes;
     const accuracy = totalKeystrokes > 0 ? (this.correctKeystrokes / totalKeystrokes) * 100 : 0;
 
@@ -251,9 +279,20 @@ export default class GameScene extends Phaser.Scene {
   private endMatch(): void {
     this.gameOver = true;
     const elapsedMinutes = this.elapsedSeconds / 60;
-    const wpm = elapsedMinutes > 0 ? this.correctKeystrokes / 5 / elapsedMinutes : 0;
+    const wpm = elapsedMinutes > 0 ? this.completedCharacters / 5 / elapsedMinutes : 0;
     const totalKeystrokes = this.correctKeystrokes + this.incorrectKeystrokes;
     const accuracy = totalKeystrokes > 0 ? (this.correctKeystrokes / totalKeystrokes) * 100 : 0;
+
+    this.onGameOver({
+      score: this.score,
+      wpm,
+      accuracy,
+      completedWords: this.completedWords,
+      mode: this.matchConfig.mode,
+      difficulty: this.matchConfig.difficulty,
+      roundTime: this.matchConfig.roundTime,
+      wordSet: this.matchConfig.wordSet,
+    });
 
     this.gameOverDisplay
       .setText(

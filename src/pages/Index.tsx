@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { CheckCheck, Star, Zap } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { mockMatchConfig } from "../lib/mockData";
+import { usePlayerAuth } from "../lib/PlayerAuthContext";
 
 const assetRoot = "/figma/type-tiles-home";
 
@@ -53,8 +54,9 @@ function HomeStatIcon({ icon: Icon, alt }: { icon: (typeof statItems)[number]["i
 
 export default function Dashboard() {
   const navigate = useNavigate();
+  const { user } = usePlayerAuth();
   const [profile, setProfile] = useState<HomeProfile>({
-    name: "LISCANO_01",
+    name: user?.displayName || user?.username || "Player",
     rank: "Rank # 1 Global",
     status: "Online",
     level: 42,
@@ -87,7 +89,7 @@ export default function Dashboard() {
       Fast: "Extreme",
     };
 
-    navigate("/pre-match", {
+    navigate("/app/pre-match", {
       state: {
         matchConfig: {
           ...mockMatchConfig,
@@ -188,7 +190,7 @@ export default function Dashboard() {
         <div className="space-y-4">
           <div className="flex justify-start">
             <Link
-              to="/play"
+              to="/app/play"
               className="inline-flex min-w-[158px] items-center justify-center rounded-[8px] border border-[#bde9ff] bg-[#7357f1] px-6 py-3 text-[1rem] font-medium text-white shadow-[0_14px_30px_rgba(80,63,220,0.35)] transition hover:brightness-110"
             >
               Start Game

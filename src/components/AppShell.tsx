@@ -1,8 +1,9 @@
-import { Dices, Menu, Trophy, UserRound, Users, X } from "lucide-react";
+import { Dices, LogOut, Menu, Trophy, UserRound, Users, X } from "lucide-react";
 import { useState } from "react";
-import { NavLink, Outlet } from "react-router-dom";
+import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import homeIcon from "../assets/homeicon/home.png";
 import { HudBackground } from "./HudBackground";
+import { usePlayerAuth } from "../lib/PlayerAuthContext";
 
 const navItems = [
   { label: "Home", to: "/app", icon: homeIcon, iconClassName: "h-5 w-5", end: true },
@@ -22,6 +23,13 @@ function NavIcon({ icon, iconClassName }: { icon: (typeof navItems)[number]["ico
 
 export function AppShell() {
   const [open, setOpen] = useState(false);
+  const navigate = useNavigate();
+  const { logout, user } = usePlayerAuth();
+
+  const handleLogout = () => {
+    logout();
+    navigate("/welcome", { replace: true });
+  };
 
   return (
     <div className="relative h-screen overflow-hidden text-slate-100">
@@ -72,6 +80,14 @@ export function AppShell() {
               </NavLink>
             ))}
           </nav>
+
+          <div className="mt-8 border-t border-white/10 pt-4">
+            <div className="mb-3 truncate px-3 text-xs text-white/60">{user?.displayName || user?.username}</div>
+            <button type="button" onClick={handleLogout} className="flex w-full items-center gap-3 rounded-[0.55rem] px-3 py-3 text-sm font-semibold text-white/80 transition hover:bg-white/8 hover:text-white">
+              <LogOut className="h-5 w-5" />
+              <span>Log out</span>
+            </button>
+          </div>
         </aside>
 
         <div className="flex min-h-0 min-w-0 flex-1 flex-col lg:pl-[54px] lg:pr-[48px]">
