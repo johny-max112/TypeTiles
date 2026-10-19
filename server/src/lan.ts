@@ -3,21 +3,12 @@ import { IncomingMessage } from "http";
 import { WebSocket, WebSocketServer } from "ws";
 import { getDatabase } from "./db.js";
 import { normalizeRole, verifyToken, type AppRole } from "./auth.js";
-import { getDifficultyKey, getWordsForDifficulty, getWordCategory, WORD_BANK, type WordCategory } from "./wordBank.js";
+import { ClassroomConfigError, validateClassroomConfig, createClassroomSequence, type ClassroomMatchConfig } from "./classroomConfig.js";
 import { sessionEvents } from "./sessionEvents.js";
 
 export const DEFAULT_MAX_STUDENTS = 50;
 const STANDINGS_INTERVAL_MS = 250;
 const COUNTDOWN_DELAY_MS = 3000;
-const SUPPORTED_ROUND_TIMES = [30, 60, 90] as const;
-const BACKGROUNDS = new Set(["blues", "volts", "office", "city"]);
-
-type ClassroomMatchConfig = {
-  wordSet: WordCategory;
-  difficulty: "Easy" | "Normal" | "Hard";
-  roundTime: (typeof SUPPORTED_ROUND_TIMES)[number];
-  background: string;
-};
 
 type ClientMessage = {
   type: "create_room" | "join_room" | "leave_room" | "cancel_room" | "update_match_config" | "ready" | "start_game" | "score_update";
@@ -35,6 +26,8 @@ type ClientMessage = {
   wordSet?: string;
   roundTime?: number;
   background?: string;
+  practiceFormat?: string;
+  greggSubmode?: string;
 };
 
 type Player = {
@@ -293,8 +286,8 @@ function makeRoomCode() {
 async function createDatabaseMatch(message: ClientMessage) {
   const db = getDatabase();
   const result = await db.run(
-    `INSERT INTO matches (mode, difficulty, round_time, word_set, background, status) VALUES (?, ?, ?, ?, ?, ?)`,
-    [message.mode || "LAN Match", message.difficulty || "Normal", message.roundTime || 90, message.wordSet || "General", message.background || "blues", "active"],
+    `INSERT INTO matches (mode, difficulty, round_time, word_set, background, status, practice_format) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    [message.mode || "LAN Match", message.difficulty || "Normal", message.roundTime || 90, message.wordSet || "General", message.background || "blues", "active", message.practiceFormat ?? "word-phrase"],
   );
   return result.lastID;
 }
@@ -304,7 +297,7 @@ async function persistRoomConfig(room: Room) {
 
   await getDatabase().run(
     `UPDATE matches
-     SET mode = ?, word_set = ?, difficulty = ?, round_time = ?, background = ?
+     SET mode = ?, word_set = ?, difficulty = ?, round_time = ?, background = ?, practice_format = ?
      WHERE id = ?`,
     [
       room.mode,
@@ -312,6 +305,7 @@ async function persistRoomConfig(room: Room) {
       room.difficulty,
       room.roundTime,
       room.matchConfig.background,
+      room.matchConfig.practiceFormat,
       room.dbMatchId,
     ],
   );
@@ -448,16 +442,14 @@ export function attachLanServer(server: import("http").Server,
             return;
           }
 
-          const matchConfig = normalizeMatchConfig({
-            wordSet: message.wordSet || "General",
+          const matchConfig = validateClassroomConfig({
+            wordSet: message.wordSet ?? "General",
+            practiceFormat: message.practiceFormat,
+            greggSubmode: message.greggSubmode,
             difficulty: message.difficulty || "Normal",
             roundTime: message.roundTime || 90,
             background: message.background || "blues",
           });
-          if (!matchConfig) {
-            send(socket, { type: "error", message: "Invalid classroom match configuration." });
-            return;
-          }
 
           player.name = identity.username;
           player.token = message.token;
@@ -473,6 +465,7 @@ export function attachLanServer(server: import("http").Server,
               difficulty: matchConfig.difficulty,
               roundTime: matchConfig.roundTime,
               background: matchConfig.background,
+              practiceFormat: matchConfig.practiceFormat,
             }),
             mode: message.mode || "LAN Match",
             difficulty: matchConfig.difficulty,
@@ -590,11 +583,7 @@ export function attachLanServer(server: import("http").Server,
             return;
           }
 
-          const matchConfig = normalizeMatchConfig(message);
-          if (!matchConfig) {
-            send(socket, { type: "error", message: "Invalid category, difficulty, or round time." });
-            return;
-          }
+          const matchConfig = validateClassroomConfig({ ...room.matchConfig, ...message });
 
           room.matchConfig = matchConfig;
           room.wordSet = matchConfig.wordSet;
@@ -655,7 +644,7 @@ export function attachLanServer(server: import("http").Server,
           room.started = true;
           await persistRoomConfig(room);
           room.startAt = Date.now() + COUNTDOWN_DELAY_MS;
-          room.wordSequence = createWordSequence(room.matchConfig);
+          room.wordSequence = createClassroomSequence(room.matchConfig);
           room.deadlineTimer = setTimeout(() => {
             void finalizeRoom(room).catch(() => {
               for (const participant of room.players.values()) send(participant.socket,
@@ -730,6 +719,10 @@ export function attachLanServer(server: import("http").Server,
           }
         }
       } catch (error) {
+        if (error instanceof ClassroomConfigError) {
+          send(socket, { type: "error", code: "INVALID_MATCH_CONFIG", message: error.message });
+          return;
+        }
         console.error("LAN message error:", error);
         send(socket, { type: "error", message: "The host could not process that request." });
       } finally {
@@ -745,35 +738,4 @@ export function attachLanServer(server: import("http").Server,
   });
 
   return webSocketServer;
-}
-
-function normalizeMatchConfig(input: { wordSet?: string; difficulty?: string; roundTime?: number; background?: string }): ClassroomMatchConfig | null {
-  const difficultyKey = input.difficulty ? getDifficultyKey(input.difficulty) : null;
-  const wordSet = input.wordSet ? getWordCategory(input.wordSet) : null;
-  const roundTime = input.roundTime;
-  if (!difficultyKey || !wordSet || !SUPPORTED_ROUND_TIMES.includes(roundTime as (typeof SUPPORTED_ROUND_TIMES)[number]) || !BACKGROUNDS.has(input.background || "blues")) return null;
-
-  return {
-    wordSet,
-    difficulty: difficultyKey === "easy" ? "Easy" : difficultyKey === "normal" ? "Normal" : "Hard",
-    roundTime: roundTime as (typeof SUPPORTED_ROUND_TIMES)[number],
-    background: input.background || "blues",
-  };
-}
-
-function createWordSequence(config: ClassroomMatchConfig): string[] {
-  const difficulty = getDifficultyKey(config.difficulty);
-  if (!difficulty) return [];
-  const preferredWords = [...new Set(getWordsForDifficulty(config.wordSet, difficulty))];
-  const preferredWordSet = new Set(preferredWords);
-  const remainingCategoryWords = [...new Set(WORD_BANK[config.wordSet])].filter((word) => !preferredWordSet.has(word));
-  const shuffle = (words: string[]) => {
-    const shuffled = [...words];
-    for (let index = shuffled.length - 1; index > 0; index -= 1) {
-      const swapIndex = Math.floor(Math.random() * (index + 1));
-      [shuffled[index], shuffled[swapIndex]] = [shuffled[swapIndex], shuffled[index]];
-    }
-    return shuffled;
-  };
-  return [...shuffle(preferredWords), ...shuffle(remainingCategoryWords)];
 }

@@ -4,6 +4,8 @@ import { ArrowRight, Check, Copy, Users, Wifi } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 import { ClassroomLeaderboard } from "../components/ClassroomLeaderboard";
+import { ClassroomFormatSelect } from "../components/ClassroomFormatSelect";
+import type { ClassroomMatchConfig as ServerClassroomMatchConfig } from "../../server/src/classroomConfig";
 import type { ClassroomStanding } from "../lib/classroomTypes";
 import { PLAYER_TOKEN_KEY } from "../lib/playerApi";
 import { usePlayerAuth } from "../lib/PlayerAuthContext";
@@ -20,10 +22,7 @@ type Player = {
   displayName?: string;
 };
 
-type ClassroomMatchConfig = {
-  wordSet: WordCategory;
-  difficulty: "Easy" | "Normal" | "Hard";
-  roundTime: 30 | 60 | 90;
+type ClassroomMatchConfig = Omit<ServerClassroomMatchConfig, "background"> & {
   background: ProfileBackgroundId;
 };
 
@@ -405,6 +404,7 @@ export default function Lobby() {
       mode: "LAN Match",
       difficulty: "Normal",
       wordSet: "General",
+      practiceFormat: "word-phrase",
       roundTime: 90,
       background: "blues",
     });
@@ -428,6 +428,7 @@ export default function Lobby() {
 
       wordSet:
         config.wordSet || room.matchConfig.wordSet,
+      practiceFormat: config.practiceFormat ?? room.matchConfig.practiceFormat ?? "word-phrase",
 
       difficulty:
         config.difficulty ||
@@ -756,7 +757,7 @@ export default function Lobby() {
                   Match Settings
                 </div>
 
-                <div className="mt-3 grid gap-3 sm:grid-cols-4">
+                <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
                   <label className="text-xs text-white/70">
                     Category
 
@@ -792,6 +793,13 @@ export default function Lobby() {
                       )}
                     </select>
                   </label>
+
+                  <ClassroomFormatSelect
+                    value={room.matchConfig.practiceFormat ?? "word-phrase"}
+                    disabled={!currentPlayer?.isHost || room.started}
+                    stenography={room.matchConfig.wordSet === "stenography"}
+                    onChange={practiceFormat => updateMatchConfig({ practiceFormat })}
+                  />
 
                   <label className="text-xs text-white/70">
                     Difficulty
