@@ -8,6 +8,7 @@ import { ClassroomFormatSelect } from "../components/ClassroomFormatSelect";
 import type { ClassroomMatchConfig as ServerClassroomMatchConfig } from "../../server/src/classroomConfig";
 import type { ClassroomStanding } from "../lib/classroomTypes";
 import { PLAYER_TOKEN_KEY } from "../lib/playerApi";
+import { getBackendEndpoints, getSavedClassroomConnection, CLASSROOM_ROOM_KEY as LAN_ROOM_CODE_KEY, CLASSROOM_ENDPOINT_KEY, type BackendEndpoints } from "../lib/endpoints";
 import { usePlayerAuth } from "../lib/PlayerAuthContext";
 import { WORD_CATEGORIES, type WordCategory } from "../words";
 import { PROFILE_BACKGROUNDS, type ProfileBackgroundId } from "../lib/profileAssets";
@@ -50,8 +51,10 @@ type SocketMessage = RoomState & {
   players?: Standing[];
 };
 
-const defaultHost = `${window.location.hostname}:3001`;
-const LAN_ROOM_CODE_KEY = "type_tiles_lan_room_code";
+function defaultHost(): string {
+  try { return getBackendEndpoints().backendOrigin; }
+  catch { return ""; } // A configuration error is shown when connecting, without crashing the page.
+}
 
 export default function Lobby() {
   const { user } = usePlayerAuth();
@@ -61,6 +64,7 @@ export default function Lobby() {
   const pendingMessageRef = useRef<object | null>(null);
   const pendingAfterReconnectRef = useRef<object | null>(null);
   const activeMatchRef = useRef(false);
+  const connectedHostRef = useRef<string | null>(null);
 
   const [hostAddress, setHostAddress] = useState(defaultHost);
 
@@ -85,17 +89,28 @@ export default function Lobby() {
   >("idle");
 
   const connect = () => {
-    socketRef.current?.close();
-
     setError("");
+    let endpoint: BackendEndpoints;
+    let socket: WebSocket;
+    try {
+      endpoint = getBackendEndpoints(hostAddress);
+      socket = new WebSocket(endpoint.webSocketUrl);
+    } catch (error) {
+      setError(error instanceof Error ? error.message : "Invalid classroom endpoint configuration.");
+      setStatus("idle");
+      pendingMessageRef.current = null;
+      pendingAfterReconnectRef.current = null;
+      return false;
+    }
+    socketRef.current?.close();
     setStatus("connecting");
-
-    const cleanHost = hostAddress.replace(/^https?:\/\//, "");
-    const socket = new WebSocket(`ws://${cleanHost}/ws`);
+    setHostAddress(endpoint.backendOrigin);
+    connectedHostRef.current = endpoint.backendOrigin;
 
     socketRef.current = socket;
 
     socket.onopen = () => {
+      if (socketRef.current !== socket) return;
       setStatus("connected");
 
       // Clear stale "Connecting to classroom host..." messages.
@@ -120,6 +135,7 @@ export default function Lobby() {
     };
 
     socket.onmessage = (event) => {
+      if (socketRef.current !== socket) return;
       const message = JSON.parse(event.data) as SocketMessage;
 
       if (message.type === "room_state") {
@@ -127,6 +143,7 @@ export default function Lobby() {
 
         setRoomCode(message.roomCode);
         localStorage.setItem(LAN_ROOM_CODE_KEY, message.roomCode);
+        localStorage.setItem(CLASSROOM_ENDPOINT_KEY, endpoint.backendOrigin);
       }
 
       if (message.type === "room_started") {
@@ -158,6 +175,7 @@ export default function Lobby() {
       ) {
         setRoomCode(message.roomCode);
         localStorage.setItem(LAN_ROOM_CODE_KEY, message.roomCode);
+        localStorage.setItem(CLASSROOM_ENDPOINT_KEY, endpoint.backendOrigin);
 
         if (
           message.type === "room_joined" &&
@@ -188,6 +206,7 @@ export default function Lobby() {
         setRoomCode("");
 
         localStorage.removeItem(LAN_ROOM_CODE_KEY);
+        localStorage.removeItem(CLASSROOM_ENDPOINT_KEY);
 
         setError(
           message.message || "The classroom is no longer available."
@@ -202,6 +221,7 @@ export default function Lobby() {
         setRoomCode("");
 
         localStorage.removeItem(LAN_ROOM_CODE_KEY);
+        localStorage.removeItem(CLASSROOM_ENDPOINT_KEY);
 
         setError(message.message || "The classroom was cancelled.");
 
@@ -230,6 +250,7 @@ export default function Lobby() {
           setRoomCode("");
 
           localStorage.removeItem(LAN_ROOM_CODE_KEY);
+          localStorage.removeItem(CLASSROOM_ENDPOINT_KEY);
 
           setError(
             "That classroom is no longer available. Enter a new room code."
@@ -241,16 +262,19 @@ export default function Lobby() {
     };
 
     socket.onerror = () => {
+      if (socketRef.current !== socket) return;
       setStatus("idle");
 
       setError(
-        "Unable to reach the host. Check the host IP and port."
+        "Unable to reach the classroom backend. Check the server status, address, and network connection."
       );
     };
 
     socket.onclose = () => {
+      if (socketRef.current !== socket) return;
       setStatus("idle");
     };
+    return true;
   };
 
   useEffect(
@@ -308,7 +332,7 @@ export default function Lobby() {
         state: {
           mode: "multiplayer",
           roomCode: room.roomCode,
-          hostAddress,
+          hostAddress: connectedHostRef.current ?? hostAddress,
           matchConfig: room.matchConfig,
           wordSequence,
           startAt: room.startAt,
@@ -330,20 +354,27 @@ export default function Lobby() {
     room?.matchConfig,
     user?.role,
     wordSequence,
+    hostAddress,
   ]);
 
   /*
    * Restore saved room connection.
    */
   useEffect(() => {
-    const savedRoomCode =
-      localStorage.getItem(LAN_ROOM_CODE_KEY);
-
-    if (!savedRoomCode) return;
+    const saved = getSavedClassroomConnection(localStorage);
+    if (!saved) return;
+    try { getBackendEndpoints(saved.hostAddress); }
+    catch {
+      localStorage.removeItem(LAN_ROOM_CODE_KEY);
+      localStorage.removeItem(CLASSROOM_ENDPOINT_KEY);
+      setRoomCode("");
+      setError("The saved classroom belongs to a different or invalid backend. Enter a room code for your current login server.");
+      return;
+    }
 
     pendingMessageRef.current = {
       type: "join_room",
-      roomCode: savedRoomCode,
+      roomCode: saved.roomCode,
       playerName,
     };
 
@@ -368,9 +399,7 @@ export default function Lobby() {
         pendingMessageRef.current = message;
       }
 
-      connect();
-
-      setError("Connecting to the classroom host...");
+      if (connect()) setError("Connecting to the classroom host...");
 
       return;
     }
@@ -466,6 +495,7 @@ export default function Lobby() {
     setMatchInProgress(false);
 
     localStorage.removeItem(LAN_ROOM_CODE_KEY);
+    localStorage.removeItem(CLASSROOM_ENDPOINT_KEY);
   };
 
   const exitClassroom = () => {
@@ -614,7 +644,7 @@ export default function Lobby() {
 
                 <p className="mt-1 text-[1rem] text-white/70">
                   {user?.role === "teacher"
-                    ? "Open a room for students on your local network"
+                    ? "Open a classroom on your configured online or LAN server"
                     : "Enter the teacher's room code to join"}
                 </p>
 
@@ -651,13 +681,11 @@ export default function Lobby() {
           <div className="mt-6 grid gap-4 md:grid-cols-2">
             <article className="min-h-[136px] rounded-[9px] bg-[#1c2451] px-8 py-7">
               <h2 className="text-[1.3rem] font-semibold text-[#00ed8a]">
-                LAN Connected
+                Classroom Connection
               </h2>
 
               <p className="mt-2 max-w-[320px] text-[0.95rem] leading-5 text-white/75">
-                You are connected to the school network.
-                <br />
-                You can join a session.
+                Join your teacher on the same configured classroom server, online or over LAN.
               </p>
             </article>
 
@@ -695,6 +723,7 @@ export default function Lobby() {
 
                 <input
                   value={hostAddress}
+                  disabled={status !== "idle"}
                   onChange={(event) =>
                     setHostAddress(
                       event.target.value

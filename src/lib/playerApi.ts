@@ -1,8 +1,6 @@
 import type { PracticeFormat } from "../../server/src/sentenceBank";
+import { getBackendEndpoints } from "./endpoints";
 
-const API_BASE_URL =
-  import.meta.env.VITE_API_URL ??
-  `http://${window.location.hostname}:3001/api`;
 export const PLAYER_TOKEN_KEY = "player_token";
 
 export type PlayerUser = {
@@ -138,7 +136,7 @@ type MeResponse = {
 };
 
 async function request<T>(path: string, options: RequestInit = {}, token?: string): Promise<T> {
-  const response = await fetch(`${API_BASE_URL}${path}`, {
+  const response = await fetch(`${getBackendEndpoints().apiUrl}${path}`, {
     ...options,
     headers: {
       "Content-Type": "application/json",

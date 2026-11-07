@@ -13,6 +13,7 @@ import {
 import { usePlayerAuth } from "../lib/PlayerAuthContext";
 import { getProfileBackground } from "../lib/profileAssets";
 import type { ClassroomRankUpdate, ClassroomStanding } from "../lib/classroomTypes";
+import { getBackendEndpoints } from "../lib/endpoints";
 
 type ClassroomResult = ClassroomStanding;
 
@@ -69,28 +70,33 @@ export default function Game({
   useEffect(() => {
     if (
       mode !== "multiplayer" ||
-      !roomCode ||
-      !hostAddress
+      !roomCode
     ) {
       return;
     }
 
-    const cleanHost = hostAddress.replace(
-      /^https?:\/\//,
-      ""
-    );
+    let webSocketUrl: string;
+    try { webSocketUrl = getBackendEndpoints(hostAddress).webSocketUrl; }
+    catch (error) {
+      setClassroomError(error instanceof Error ? error.message : "Invalid classroom endpoint configuration.");
+      return;
+    }
 
     let disposed = false;
     let reconnectTimer: ReturnType<typeof setTimeout> | undefined;
     let reconnectAttempts = 0;
     const connect = () => {
-      const socket = new WebSocket(
-        `ws://${cleanHost}/ws`
-      );
+      let socket: WebSocket;
+      try { socket = new WebSocket(webSocketUrl); }
+      catch {
+        setClassroomError("Unable to open the classroom connection. Check your backend configuration.");
+        return;
+      }
 
       socketRef.current = socket;
 
       socket.onopen = () => {
+        if (disposed || socketRef.current !== socket) return;
         const token =
           localStorage.getItem(PLAYER_TOKEN_KEY);
 
@@ -104,6 +110,7 @@ export default function Game({
       };
 
       socket.onmessage = (event) => {
+        if (disposed || socketRef.current !== socket) return;
         const message = JSON.parse(event.data) as {
           type?: string;
           message?: string;
