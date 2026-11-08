@@ -33,6 +33,7 @@ test("sentence practice: additive migration, API validation and durable history"
   try {
     const db = await initializeDatabase();
     assert.equal((await db.get("SELECT practice_format FROM matches WHERE id = 1")).practice_format, "word-phrase");
+    assert.equal((await db.get("SELECT owner_user_id FROM matches WHERE id = 1")).owner_user_id, null);
     await db.run("INSERT INTO users (username,email,password_hash,display_name,role,email_verified) VALUES ('sentence-student','sentence@example.com','test-only','Sentence Student','student',1)");
     const user = await db.get("SELECT id FROM users WHERE username = 'sentence-student'");
     await db.run("INSERT INTO user_stats (user_id) VALUES (?)", user.id);

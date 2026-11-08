@@ -283,11 +283,11 @@ function makeRoomCode() {
   return code;
 }
 
-async function createDatabaseMatch(message: ClientMessage) {
+async function createDatabaseMatch(message: ClientMessage, ownerUserId: number) {
   const db = getDatabase();
   const result = await db.run(
-    `INSERT INTO matches (mode, difficulty, round_time, word_set, background, status, practice_format) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-    [message.mode || "LAN Match", message.difficulty || "Normal", message.roundTime || 90, message.wordSet || "General", message.background || "blues", "active", message.practiceFormat ?? "word-phrase"],
+    `INSERT INTO matches (mode, difficulty, round_time, word_set, background, status, practice_format, owner_user_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+    [message.mode || "LAN Match", message.difficulty || "Normal", message.roundTime || 90, message.wordSet || "General", message.background || "blues", "active", message.practiceFormat ?? "word-phrase", ownerUserId],
   );
   return result.lastID;
 }
@@ -466,7 +466,7 @@ export function attachLanServer(server: import("http").Server,
               roundTime: matchConfig.roundTime,
               background: matchConfig.background,
               practiceFormat: matchConfig.practiceFormat,
-            }),
+            }, identity.userId),
             mode: message.mode || "LAN Match",
             difficulty: matchConfig.difficulty,
             wordSet: matchConfig.wordSet,
@@ -512,6 +512,10 @@ export function attachLanServer(server: import("http").Server,
             return;
           }
           const reconnectingHost = identity.userId === room.ownerUserId;
+          if (reconnectingHost && identity.role !== "teacher") {
+            send(socket, { type: "error", code: "ROLE_NOT_ALLOWED", message: "A current teacher role is required to reconnect as classroom host." });
+            return;
+          }
           if (!reconnectingHost && identity.role !== "student") {
             send(socket, { type: "error", code: "ROLE_NOT_ALLOWED", message: "Only students and this classroom's teacher can join." });
             return;
@@ -572,7 +576,7 @@ export function attachLanServer(server: import("http").Server,
         }
 
         if (message.type === "update_match_config") {
-          const identity = await authenticatePlayer(message.token);
+          const identity = await authenticatePlayer(player.token);
           if (socket.readyState !== WebSocket.OPEN) return;
           if (!identity || identity.role !== "teacher" || identity.userId !== room.ownerUserId || player.userId !== room.ownerUserId) {
             send(socket, { type: "error", message: "Only the teacher who owns this classroom can update match settings." });
@@ -594,7 +598,7 @@ export function attachLanServer(server: import("http").Server,
           await persistRoomConfig(room);
           broadcast(room);
         } else if (message.type === "cancel_room") {
-          const identity = await authenticatePlayer(message.token);
+          const identity = await authenticatePlayer(player.token);
           if (socket.readyState !== WebSocket.OPEN) return;
           if (!identity || identity.role !== "teacher" || identity.userId !== room.ownerUserId || player.userId !== room.ownerUserId) {
             send(socket, { type: "error", message: "Only the teacher who owns this classroom can cancel it." });
@@ -610,6 +614,11 @@ export function attachLanServer(server: import("http").Server,
           for (const participant of room.players.values()) participant.socket.close();
         } else if (message.type === "leave_room") {
           if (player.isHost && room.started && room.dbMatchId) {
+            const identity = await authenticatePlayer(player.token);
+            if (!identity || identity.role !== "teacher" || identity.userId !== room.ownerUserId) {
+              leaveRoom(player, true);
+              return;
+            }
             const results = await getResultsForFinalization(room, getStudentResults(room));
             if (results.some((result) => result.score !== 0 || result.wpm !== 0 || result.accuracy !== 0 || result.finished)) {
               await persistClassroomResults(room, results);
@@ -623,7 +632,9 @@ export function attachLanServer(server: import("http").Server,
           player.ready = true;
           broadcast(room);
         } else if (message.type === "start_game") {
-          if (!player.isHost || player.userId !== room.ownerUserId) {
+          const identity = await authenticatePlayer(player.token);
+          if (socket.readyState !== WebSocket.OPEN) return;
+          if (!identity || identity.role !== "teacher" || !player.isHost || identity.userId !== room.ownerUserId || player.userId !== room.ownerUserId) {
             send(socket, { type: "error", message: "Only the host can start the game." });
             return;
           }

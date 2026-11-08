@@ -1,5 +1,5 @@
 import { Router, Request, Response } from "express";
-import { getDatabase } from "../db.js";
+import { getDatabase, databaseTransaction } from "../db.js";
 import { authMiddleware, adminMiddleware } from "../middleware.js";
 
 const router = Router();
@@ -176,17 +176,23 @@ router.put("/users/:userId/role", async (req: Request, res: Response) => {
       return res.status(400).json({ error: "Role must be student or teacher" });
     }
 
-    const db = getDatabase();
-    const user = await db.get("SELECT id FROM users WHERE id = ?", [userId]);
-    if (!user) {
+    const outcome = await databaseTransaction(async (db) => {
+      const user = await db.get("SELECT id, role FROM users WHERE id = ?", [userId]);
+      if (!user) return "missing";
+      if (user.role === "admin") return "admin";
+      await db.run("UPDATE users SET role = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?", [role, userId]);
+      await db.run(
+        "INSERT INTO admin_logs (admin_id, action, target_user_id, details) VALUES (?, ?, ?, ?)",
+        [req.user!.userId, "update_role", userId, `Updated to ${role}`],
+      );
+      return "updated";
+    });
+    if (outcome === "missing") {
       return res.status(404).json({ error: "User not found" });
     }
-
-    await db.run("UPDATE users SET role = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?", [role, userId]);
-    await db.run(
-      "INSERT INTO admin_logs (admin_id, action, target_user_id, details) VALUES (?, ?, ?, ?)",
-      [req.user!.userId, "update_role", userId, `Updated to ${role}`],
-    );
+    if (outcome === "admin") {
+      return res.status(403).json({ error: "Admin accounts cannot be changed through this role endpoint" });
+    }
 
     res.json({ message: "User role updated successfully", role });
   } catch (error) {

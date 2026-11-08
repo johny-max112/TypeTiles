@@ -20,6 +20,29 @@ import adminRoutes from "../src/routes/admin.js";
 import feedbackRoutes from "../src/routes/feedback.js";
 import { generateToken } from "../src/auth.js";
 import { attachLanServer } from "../src/lan.js";
+import { authorizationChecks } from "./authorizationChecks.js";
+
+test("classroom ownership migration preserves legacy accounts/results and is idempotent", async () => {
+  const engine = new PGlite();
+  try {
+    await engine.exec("CREATE ROLE anon; CREATE ROLE authenticated;");
+    await engine.exec(await readFile(new URL("../../supabase/migrations/20261018000100_initial_type_tiles.sql", import.meta.url), "utf8"));
+    await engine.exec(`INSERT INTO users(username,email,password_hash,display_name,role,email_verified)
+      VALUES('legacy-teacher','legacy-teacher@example.test','test-only','Teacher','teacher',1),
+            ('legacy-admin','legacy-admin@example.test','test-only','Admin','admin',1);
+      INSERT INTO matches(mode,difficulty,word_set,status) VALUES('LAN Match','Normal','General','completed');
+      INSERT INTO match_participants(match_id,user_id,score,wpm,accuracy) VALUES(1,1,123,45,98);`);
+    const users = (await engine.query("SELECT * FROM users ORDER BY id")).rows;
+    const participants = (await engine.query("SELECT * FROM match_participants ORDER BY id")).rows;
+    const match = (await engine.query("SELECT * FROM matches WHERE id=1")).rows[0];
+    const migration = await readFile(new URL("../../supabase/migrations/20261108000100_classroom_ownership.sql", import.meta.url), "utf8");
+    await engine.exec(migration); await engine.exec(migration);
+    assert.deepEqual((await engine.query("SELECT * FROM users ORDER BY id")).rows, users);
+    assert.deepEqual((await engine.query("SELECT * FROM match_participants ORDER BY id")).rows, participants);
+    const { owner_user_id, ...preserved } = (await engine.query("SELECT * FROM matches WHERE id=1")).rows[0];
+    assert.equal(owner_user_id, null); assert.deepEqual(preserved, match);
+  } finally { await engine.close(); }
+});
 
 test("PostgreSQL query binding and TLS configuration preserve API types", () => {
   assert.equal(postgresQuery("SELECT '?' AS literal, \"?\", $$?$$, $tag$?$tag$, ? -- ?\n, ? /* ? /* ? */ ? */"),
@@ -63,6 +86,9 @@ test("PostgreSQL engine: registration, recovery, Solo/history, admin and LAN per
   await engine.exec("CREATE ROLE anon; CREATE ROLE authenticated;");
   const migration = await readFile(new URL("../../supabase/migrations/20261018000100_initial_type_tiles.sql", import.meta.url), "utf8");
   await engine.exec(migration);
+  const ownershipMigration = await readFile(new URL("../../supabase/migrations/20261108000100_classroom_ownership.sql", import.meta.url), "utf8");
+  await engine.exec(ownershipMigration);
+  await engine.exec(ownershipMigration);
   // PGlite has one engine connection. Lease it exclusively for auth transactions.
   // Real deployed locking is provided by PostgreSQL's transaction advisory lock.
   let tail = Promise.resolve();
@@ -187,6 +213,10 @@ test("PostgreSQL engine: registration, recovery, Solo/history, admin and LAN per
       assert(detail.body.participants.every((p: any) => p.participant_status === "Finished"));
       assert.equal((await db.get("SELECT games_played FROM user_stats WHERE user_id = ?", studentId)).games_played, 1);
       assert.equal((await request(`/teacher/matches/${session.id}`, undefined, token)).status, 403);
+    });
+    await t.test("PostgreSQL REST/WebSocket security checks", async () => {
+      const address = server.address(); assert(address && typeof address !== "string");
+      await authorizationChecks(db, `http://127.0.0.1:${address.port}/api`, `ws://127.0.0.1:${address.port}/ws`, sockets);
     });
   } finally {
     for (const socket of sockets) socket.terminate();

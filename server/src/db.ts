@@ -26,6 +26,8 @@ export async function initializeDatabase(options: { postgresPool?: DatabasePool 
         version = await database.get("SELECT version FROM public.typetiles_schema_migrations WHERE version = ?", "20261018000100");
       } catch { throw new Error("Apply the Type Tiles initial migration in Supabase before starting the backend."); }
       if (!version) throw new Error("Apply the Type Tiles initial migration in Supabase before starting the backend.");
+      const ownership = await database.get("SELECT version FROM public.typetiles_schema_migrations WHERE version = ?", "20261108000100");
+      if (!ownership) throw new Error("Apply the Type Tiles classroom ownership migration before starting the backend.");
       postgresPool = pool;
       db = database;
       return database;
@@ -168,6 +170,10 @@ async function createTables(db: Database) {
 
   // Additive migration: existing matches and LAN defaults retain word gameplay.
   const matchColumns = await db.all<{ name: string }[]>("PRAGMA table_info(matches)");
+  if (!matchColumns.some((column) => column.name === "owner_user_id")) {
+    // Historical ownership is unknown; never infer it from participation.
+    await db.exec("ALTER TABLE matches ADD COLUMN owner_user_id INTEGER REFERENCES users(id)");
+  }
   if (!matchColumns.some((column) => column.name === "practice_format")) {
     await db.exec("ALTER TABLE matches ADD COLUMN practice_format TEXT NOT NULL DEFAULT 'word-phrase'");
   }

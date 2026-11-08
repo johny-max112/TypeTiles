@@ -94,7 +94,8 @@ router.post("/matches/:matchId/join", authMiddleware, async (req: Request, res: 
       return res.status(404).json({ error: "Match not found or already finished" });
     }
 
-    // Check if user already joined
+    // REST never admits participants. WebSocket join_room owns identity,
+    // role, capacity and reconnect validation; Solo matches are private.
     const existing = await db.get(
       `SELECT id FROM match_participants WHERE match_id = ? AND user_id = ?`,
       [matchId, req.user!.userId]
@@ -104,12 +105,7 @@ router.post("/matches/:matchId/join", authMiddleware, async (req: Request, res: 
       return res.status(409).json({ error: "Already joined this match" });
     }
 
-    await db.run(
-      `INSERT INTO match_participants (match_id, user_id) VALUES (?, ?)`,
-      [matchId, req.user!.userId]
-    );
-
-    res.json({ message: "Joined match successfully" });
+    res.status(403).json({ error: "Join classrooms through the authenticated classroom lobby." });
   } catch (error) {
     console.error("Join match error:", error);
     res.status(500).json({ error: "Internal server error" });
@@ -214,6 +210,15 @@ router.get("/matches/:matchId", authMiddleware, async (req: Request, res: Respon
       return res.status(404).json({ error: "Match not found" });
     }
 
+    const participant = await db.get(
+      "SELECT id FROM match_participants WHERE match_id = ? AND user_id = ?",
+      [matchId, req.user!.userId],
+    );
+    const isOwner = req.user!.role === "teacher" && match.owner_user_id === req.user!.userId;
+    if (!participant && !isOwner) {
+      return res.status(404).json({ error: "Match not found" });
+    }
+
     const participants = await db.all(
       `SELECT mp.*, u.username, u.display_name, u.tier 
        FROM match_participants mp
@@ -295,12 +300,7 @@ router.get("/teacher/matches", authMiddleware, roleMiddleware("teacher"), async 
              AND student_participant.user_id <> ?
          ) AS participant_count
        FROM matches m
-       WHERE EXISTS (
-         SELECT 1
-         FROM match_participants owner_participant
-         WHERE owner_participant.match_id = m.id
-           AND owner_participant.user_id = ?
-       )
+       WHERE m.owner_user_id = ?
        AND EXISTS (
          SELECT 1
          FROM match_participants student_participant
@@ -329,9 +329,7 @@ router.get("/teacher/matches/:matchId", authMiddleware, roleMiddleware("teacher"
     const match = await db.get(
       `SELECT m.*
        FROM matches m
-       JOIN match_participants owner_participant ON owner_participant.match_id = m.id
-       JOIN users owner ON owner.id = owner_participant.user_id
-       WHERE m.id = ? AND owner_participant.user_id = ? AND owner.role = 'teacher'`,
+       WHERE m.id = ? AND m.owner_user_id = ?`,
       [req.params.matchId, req.user!.userId],
     );
 
