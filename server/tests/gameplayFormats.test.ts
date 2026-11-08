@@ -81,6 +81,7 @@ test("shared Gregg engine preserves original 6–10 order, slower sentences, hid
       assert.equal(scene.isGreggGameplay, true); assert.equal(scene.isGreggCropPilot, false);
       assert.equal(scene.fallSpeedPxPerSec, speed * 0.5);
       const prompts = scene.greggTargets(); assert.deepEqual(prompts.map((p: any) => p.exerciseNumber), [6, 7, 8, 9, 10]);
+      assert.equal(prompts.find((p: any) => p.exerciseNumber === 7).answer, "If you are early, go to the meeting room.");
       assert(prompts.every((p: any) => p.image.startsWith("data:image/png") && !p.crop));
       prepareScene(scene);
       for (let index = 0; index < 6; index++) { scene.spawnWord(); assert.equal(scene.activeWord, prompts[index % 5].answer); }
@@ -92,6 +93,16 @@ test("shared Gregg engine preserves original 6–10 order, slower sentences, hid
   const devCrop = new development.GameScene();
   devCrop.init({ mode: "solo", matchConfig: { wordSet: "Stenography", greggSubmode: "word-phrase", difficulty: "Normal", roundTime: 30 } });
   assert.equal(devCrop.isGreggCropPilot, true); assert.equal(devCrop.fallSpeedPxPerSec, 75);
+  const exercise7Targets = devCrop.greggTargets().filter((p: any) => p.exerciseNumber === 7);
+  assert.deepEqual(exercise7Targets.map((p: any) => p.answer), ["If you are", "early", "go", "to the", "meeting", "room"]);
+  assert.deepEqual(exercise7Targets.map((p: any) => p.crop), [
+    { x: 50, y: 20, width: 125, height: 115 },
+    { x: 210, y: 65, width: 155, height: 90 },
+    { x: 400, y: 80, width: 200, height: 60 },
+    { x: 635, y: 20, width: 190, height: 120 },
+    { x: 855, y: 55, width: 190, height: 105 },
+    { x: 1070, y: 80, width: 265, height: 60 },
+  ]);
   const prodCrop = new production.GameScene();
   prodCrop.init({ mode: "solo", matchConfig: { wordSet: "Stenography", greggSubmode: "word-phrase", difficulty: "Normal", roundTime: 30 } });
   assert.equal(prodCrop.isGreggCropPilot, false); assert.equal(prodCrop.fallSpeedPxPerSec, 37.5);

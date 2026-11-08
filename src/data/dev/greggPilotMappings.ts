@@ -7,10 +7,10 @@ export const PENDING_GREGG_PILOT_MAPPINGS = [
     "exerciseNumber": 6,
     "answer": "In",
     "crop": {
-      "x": 0,
-      "y": 69,
-      "width": 47,
-      "height": 13
+      "x": 25,
+      "y": 115,
+      "width": 65,
+      "height": 30
     },
     "sequenceOrder": 1,
     "verification": "pending"
@@ -20,10 +20,10 @@ export const PENDING_GREGG_PILOT_MAPPINGS = [
     "exerciseNumber": 6,
     "answer": "only",
     "crop": {
-      "x": 54,
-      "y": 66,
-      "width": 54,
-      "height": 30
+      "x": 120,
+      "y": 95,
+      "width": 90,
+      "height": 70
     },
     "sequenceOrder": 2,
     "verification": "pending"
@@ -33,10 +33,10 @@ export const PENDING_GREGG_PILOT_MAPPINGS = [
     "exerciseNumber": 6,
     "answer": "three",
     "crop": {
-      "x": 126,
-      "y": 50,
-      "width": 32,
-      "height": 44
+      "x": 230,
+      "y": 55,
+      "width": 175,
+      "height": 95
     },
     "sequenceOrder": 3,
     "verification": "pending"
@@ -46,10 +46,10 @@ export const PENDING_GREGG_PILOT_MAPPINGS = [
     "exerciseNumber": 6,
     "answer": "weeks",
     "crop": {
-      "x": 173,
-      "y": 59,
-      "width": 47,
-      "height": 55
+      "x": 425,
+      "y": 80,
+      "width": 110,
+      "height": 95
     },
     "sequenceOrder": 4,
     "verification": "pending"
@@ -59,10 +59,10 @@ export const PENDING_GREGG_PILOT_MAPPINGS = [
     "exerciseNumber": 6,
     "answer": "we will",
     "crop": {
-      "x": 240,
-      "y": 64,
-      "width": 90,
-      "height": 35
+      "x": 560,
+      "y": 70,
+      "width": 165,
+      "height": 80
     },
     "sequenceOrder": 5,
     "verification": "pending"
@@ -72,10 +72,10 @@ export const PENDING_GREGG_PILOT_MAPPINGS = [
     "exerciseNumber": 6,
     "answer": "begin",
     "crop": {
-      "x": 356,
-      "y": 1,
-      "width": 97,
-      "height": 101
+      "x": 740,
+      "y": 0,
+      "width": 200,
+      "height": 160
     },
     "sequenceOrder": 6,
     "verification": "pending"
@@ -85,10 +85,10 @@ export const PENDING_GREGG_PILOT_MAPPINGS = [
     "exerciseNumber": 6,
     "answer": "meeting",
     "crop": {
-      "x": 468,
-      "y": 45,
-      "width": 118,
-      "height": 50
+      "x": 960,
+      "y": 75,
+      "width": 170,
+      "height": 90
     },
     "sequenceOrder": 7,
     "verification": "pending"
@@ -98,10 +98,10 @@ export const PENDING_GREGG_PILOT_MAPPINGS = [
     "exerciseNumber": 6,
     "answer": "daily",
     "crop": {
-      "x": 599,
-      "y": 23,
-      "width": 108,
-      "height": 85
+      "x": 1150,
+      "y": 35,
+      "width": 190,
+      "height": 115
     },
     "sequenceOrder": 8,
     "verification": "pending"
@@ -111,25 +111,12 @@ export const PENDING_GREGG_PILOT_MAPPINGS = [
     "exerciseNumber": 7,
     "answer": "If you are",
     "crop": {
-      "x": 3,
-      "y": 6,
-      "width": 72,
-      "height": 57
+      "x": 50,
+      "y": 20,
+      "width": 125,
+      "height": 115
     },
     "sequenceOrder": 1,
-    "verification": "pending"
-  },
-  {
-    "id": "steno-7-crop-fb58968c-498c-47a0-b784-718bfa75363b",
-    "exerciseNumber": 7,
-    "answer": "really",
-    "crop": {
-      "x": 84,
-      "y": 26,
-      "width": 125,
-      "height": 36
-    },
-    "sequenceOrder": 2,
     "verification": "pending"
   },
   {
@@ -137,12 +124,12 @@ export const PENDING_GREGG_PILOT_MAPPINGS = [
     "exerciseNumber": 7,
     "answer": "early",
     "crop": {
-      "x": 240,
-      "y": 30,
-      "width": 95,
-      "height": 35
+      "x": 210,
+      "y": 65,
+      "width": 155,
+      "height": 90
     },
-    "sequenceOrder": 3,
+    "sequenceOrder": 2,
     "verification": "pending"
   },
   {
@@ -150,12 +137,51 @@ export const PENDING_GREGG_PILOT_MAPPINGS = [
     "exerciseNumber": 7,
     "answer": "go",
     "crop": {
-      "x": 343,
-      "y": 28,
-      "width": 125,
-      "height": 32
+      "x": 400,
+      "y": 80,
+      "width": 200,
+      "height": 60
+    },
+    "sequenceOrder": 3,
+    "verification": "pending"
+  },
+  {
+    "id": "steno-7-crop-7acb02f1-77c7-4abb-b9a4-1f4cc9827120",
+    "exerciseNumber": 7,
+    "answer": "to the",
+    "crop": {
+      "x": 635,
+      "y": 20,
+      "width": 190,
+      "height": 120
     },
     "sequenceOrder": 4,
+    "verification": "pending"
+  },
+  {
+    "id": "steno-7-crop-9af4d219-4517-415f-b7fd-af2ecadd6d11",
+    "exerciseNumber": 7,
+    "answer": "meeting",
+    "crop": {
+      "x": 855,
+      "y": 55,
+      "width": 190,
+      "height": 105
+    },
+    "sequenceOrder": 5,
+    "verification": "pending"
+  },
+  {
+    "id": "steno-7-crop-16f4f5ad-2f65-4f1e-8999-33edcc0e9834",
+    "exerciseNumber": 7,
+    "answer": "room",
+    "crop": {
+      "x": 1070,
+      "y": 80,
+      "width": 265,
+      "height": 60
+    },
+    "sequenceOrder": 6,
     "verification": "pending"
   },
   {
@@ -164,49 +190,10 @@ export const PENDING_GREGG_PILOT_MAPPINGS = [
     "answer": ",",
     "playable": false,
     "crop": {
-      "x": 302,
-      "y": 30,
-      "width": 33,
-      "height": 35
-    },
-    "sequenceOrder": 8,
-    "verification": "pending"
-  },
-  {
-    "id": "steno-7-crop-7acb02f1-77c7-4abb-b9a4-1f4cc9827120",
-    "exerciseNumber": 7,
-    "answer": "to the",
-    "crop": {
-      "x": 486,
-      "y": 6,
-      "width": 84,
-      "height": 57
-    },
-    "sequenceOrder": 5,
-    "verification": "pending"
-  },
-  {
-    "id": "steno-7-crop-9af4d219-4517-415f-b7fd-af2ecadd6d11",
-    "exerciseNumber": 7,
-    "answer": "meeting",
-    "crop": {
-      "x": 585,
-      "y": 10,
-      "width": 114,
-      "height": 51
-    },
-    "sequenceOrder": 6,
-    "verification": "pending"
-  },
-  {
-    "id": "steno-7-crop-16f4f5ad-2f65-4f1e-8999-33edcc0e9834",
-    "exerciseNumber": 7,
-    "answer": "room",
-    "crop": {
-      "x": 724,
-      "y": 27,
-      "width": 167,
-      "height": 41
+      "x": 325,
+      "y": 100,
+      "width": 40,
+      "height": 55
     },
     "sequenceOrder": 7,
     "verification": "pending"
@@ -217,12 +204,12 @@ export const PENDING_GREGG_PILOT_MAPPINGS = [
     "answer": ".",
     "playable": false,
     "crop": {
-      "x": 859,
-      "y": 38,
-      "width": 32,
-      "height": 30
+      "x": 1290,
+      "y": 85,
+      "width": 40,
+      "height": 50
     },
-    "sequenceOrder": 9,
+    "sequenceOrder": 8,
     "verification": "pending"
   },
   {
