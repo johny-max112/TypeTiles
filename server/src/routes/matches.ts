@@ -5,6 +5,18 @@ import { getCategorySentences, type PracticeFormat } from "../sentenceBank.js";
 
 const router = Router();
 
+// No enrollment is inferred: this is participation in owned classroom sessions.
+// Select the latest row per session/account defensively for legacy duplicates.
+const TEACHER_PROGRESS = `WITH participation AS (
+  SELECT m.id AS session_id, m.created_at AS session_date, m.word_set, m.difficulty,
+         mp.user_id, mp.score, mp.wpm, mp.accuracy, mp.position, mp.end_reason,
+         ROW_NUMBER() OVER (PARTITION BY m.id, mp.user_id ORDER BY mp.id DESC) AS attempt_row
+  FROM matches m JOIN match_participants mp ON mp.match_id = m.id
+  WHERE m.owner_user_id = ? AND m.status = 'completed' AND mp.user_id <> m.owner_user_id
+), progress AS (
+  SELECT * FROM participation WHERE attempt_row = 1 AND end_reason IN ('time', 'health')
+)`;
+
 type TeacherSessionRow = {
   id: number;
   mode: string;
@@ -145,7 +157,7 @@ router.post("/matches/:matchId/submit", authMiddleware, async (req: Request<{ ma
     }
 
     const db = getDatabase();
-    const match = await db.get("SELECT id FROM matches WHERE id = ?", [matchId]);
+    const match = await db.get("SELECT id, mode, owner_user_id FROM matches WHERE id = ?", [matchId]);
     const participant = await db.get(
       "SELECT id FROM match_participants WHERE match_id = ? AND user_id = ?",
       [matchId, req.user!.userId],
@@ -153,6 +165,13 @@ router.post("/matches/:matchId/submit", authMiddleware, async (req: Request<{ ma
 
     if (!match || !participant) {
       return res.status(404).json({ error: "Match participation not found" });
+    }
+
+    // This endpoint belongs to the existing Solo flow. Classroom metrics are
+    // written by authenticated WebSocket score_update/finalization only.
+    // A missing legacy owner is not proof of Solo; neither is a caller's mode.
+    if (match.owner_user_id !== null || match.mode !== "Solo Practice") {
+      return res.status(403).json({ error: "Results for this match cannot be submitted through the Solo endpoint" });
     }
 
     // Update participant score
@@ -280,6 +299,43 @@ router.get("/users/history", authMiddleware, async (req: Request, res: Response)
   }
 });
 
+router.get("/teacher/students", authMiddleware, roleMiddleware("teacher"), async (req: Request, res: Response) => {
+  res.set("Cache-Control", "no-store");
+  try {
+    const students = await getDatabase().all(`${TEACHER_PROGRESS}
+      SELECT u.id, u.display_name, u.username, COUNT(*) AS session_count,
+             AVG(CASE WHEN p.wpm >= 0 THEN p.wpm END) AS average_wpm,
+             AVG(CASE WHEN p.accuracy BETWEEN 0 AND 100 THEN p.accuracy END) AS average_accuracy,
+             MAX(CASE WHEN p.wpm >= 0 THEN p.wpm END) AS best_wpm,
+             MAX(p.session_date) AS latest_session_date
+      FROM progress p JOIN users u ON u.id = p.user_id
+      GROUP BY u.id, u.display_name, u.username
+      ORDER BY u.display_name ASC, u.id ASC`, req.user!.userId);
+    res.json({ students });
+  } catch {
+    res.status(500).json({ error: "Unable to load student progress" });
+  }
+});
+
+router.get("/teacher/students/:studentId/history", authMiddleware, roleMiddleware("teacher"), async (req: Request, res: Response) => {
+  res.set("Cache-Control", "no-store");
+  const studentId = Number(req.params.studentId);
+  if (!Number.isSafeInteger(studentId) || studentId < 1) return res.status(404).json({ error: "Student progress not found" });
+  try {
+    const history = await getDatabase().all(`${TEACHER_PROGRESS}
+      SELECT p.session_id, p.session_date, p.word_set, p.difficulty, p.score,
+             p.wpm, p.accuracy, p.position, p.end_reason,
+             'Finished' AS completion_status, u.id AS user_id, u.display_name, u.username
+      FROM progress p JOIN users u ON u.id = p.user_id
+      WHERE p.user_id = ? ORDER BY p.session_date DESC, p.session_id DESC`, req.user!.userId, studentId);
+    if (history.length === 0) return res.status(404).json({ error: "Student progress not found" });
+    const { user_id: id, display_name, username } = history[0];
+    res.json({ student: { id, display_name, username }, history: history.map(({ user_id, display_name, username, ...session }: any) => session) });
+  } catch {
+    res.status(500).json({ error: "Unable to load student history" });
+  }
+});
+
 // Get multiplayer sessions hosted by the authenticated teacher.
 router.get("/teacher/matches", authMiddleware, roleMiddleware("teacher"), async (req: Request, res: Response) => {
   try {
@@ -301,7 +357,7 @@ router.get("/teacher/matches", authMiddleware, roleMiddleware("teacher"), async 
          ) AS participant_count
        FROM matches m
        WHERE m.owner_user_id = ?
-       AND EXISTS (
+       AND (m.status IN ('cancelled', 'interrupted') OR EXISTS (
          SELECT 1
          FROM match_participants student_participant
          WHERE student_participant.match_id = m.id
@@ -309,7 +365,7 @@ router.get("/teacher/matches", authMiddleware, roleMiddleware("teacher"), async 
            AND (m.status = 'completed' OR student_participant.score <> 0
                 OR student_participant.wpm <> 0
                 OR student_participant.accuracy <> 0)
-       )
+       ))
        ORDER BY m.created_at DESC
        LIMIT 50`,
       [req.user!.userId, req.user!.userId, req.user!.userId],

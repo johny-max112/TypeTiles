@@ -23,6 +23,9 @@ import { attachLanServer } from "../src/lan.js";
 import { authorizationChecks } from "./authorizationChecks.js";
 import { registrationRoleChecks } from "./registrationRoleChecks.js";
 import { userDeletionChecks } from "./userDeletionChecks.js";
+import { resultIntegrityChecks } from "./resultIntegrityChecks.js";
+import { teacherProgressChecks } from "./teacherProgressChecks.js";
+import { classroomReliabilityChecks } from "./classroomReliabilityChecks.js";
 
 test("classroom ownership migration preserves legacy accounts/results and is idempotent", async () => {
   const engine = new PGlite();
@@ -215,6 +218,7 @@ test("PostgreSQL engine: registration, recovery, Solo/history, admin and LAN per
       assert(detail.body.participants.every((p: any) => p.participant_status === "Finished"));
       assert.equal((await db.get("SELECT games_played FROM user_stats WHERE user_id = ?", studentId)).games_played, 1);
       assert.equal((await request(`/teacher/matches/${session.id}`, undefined, token)).status, 403);
+      await resultIntegrityChecks(db, base, session.id);
     });
     await t.test("PostgreSQL REST/WebSocket security checks", async () => {
       const address = server.address(); assert(address && typeof address !== "string");
@@ -227,6 +231,12 @@ test("PostgreSQL engine: registration, recovery, Solo/history, admin and LAN per
     await t.test("PostgreSQL Admin deletion, cascades, socket cleanup and re-registration", async () => {
       const address = server.address(); assert(address && typeof address !== "string");
       await userDeletionChecks(db, `http://127.0.0.1:${address.port}/api`, `ws://127.0.0.1:${address.port}/ws`, sockets);
+    });
+    await t.test("PostgreSQL teacher-specific student progress and isolation", async () => {
+      await teacherProgressChecks(db, base);
+    });
+    await t.test("PostgreSQL cancellation, atomic finalization and retry safety", async () => {
+      await classroomReliabilityChecks(db, base, `ws://127.0.0.1:${address.port}/ws`, sockets, "postgres");
     });
   } finally {
     for (const socket of sockets) socket.terminate();

@@ -26,7 +26,7 @@ async function loadComponents(apiUrl?: string) {
     "react/jsx-runtime": `export const Fragment='fragment';export function jsx(type,props){return {type,props:props||{}}}export const jsxs=jsx;`,
     "react-router-dom": `export const useNavigate=()=>globalThis.__endpointHarness.navigate;`,
     "lucide-react": `export const ArrowRight=()=>null, Check=()=>null, Copy=()=>null, Users=()=>null, Wifi=()=>null;`,
-    PlayerAuthContext: `export const usePlayerAuth=()=>({user:{id:2,username:'student',displayName:'Student',role:'student'}});`,
+    PlayerAuthContext: `export const usePlayerAuth=()=>({user:{id:2,username:'student',displayName:'Student',role:globalThis.__endpointHarness.role||'student'}});`,
     GameMount: `export function GameMount(){return null}`,
     ClassroomLeaderboard: `export function ClassroomLeaderboard(){return null}`,
     ClassroomFormatSelect: `export function ClassroomFormatSelect(){return null}`,
@@ -38,6 +38,7 @@ async function loadComponents(apiUrl?: string) {
     bundle: true, write: false, platform: "node", format: "esm", jsx: "automatic",
     define: {
       "import.meta.env.VITE_API_URL": apiUrl === undefined ? "undefined" : JSON.stringify(apiUrl),
+      "import.meta.env.DEV": "false",
       window: "globalThis.__endpointHarness.window", localStorage: "globalThis.__endpointHarness.storage",
       WebSocket: "globalThis.__endpointHarness.WebSocket", fetch: "globalThis.__endpointHarness.fetch",
       setTimeout: "globalThis.__endpointHarness.setTimeout", clearTimeout: "globalThis.__endpointHarness.clearTimeout",
@@ -105,11 +106,18 @@ for (const setup of [
   try {
     await components.loginPlayer("student", "test-only"); assert.equal(h.requests[0], `${setup.origin}/api/auth/login`);
     let tree = h.render(components.Lobby);
+    assert(!text(tree).toLowerCase().includes("your player name"));
+    assert(!text(tree).toLowerCase().includes("host address"));
+    assert(!text(tree).includes(setup.origin));
+    assert.match(text(tree), /Signed in as\s+student/);
+    assert.equal(nodes(tree).filter(node => node.type === "input").length, 1);
     const code = nodes(tree).find(node => node.type === "input" && node.props["aria-label"] === "Room code");
     code.props.onChange({ target: { value: "ABCD" } }); tree = h.render(components.Lobby);
     nodes(tree).find(node => node.type === "form").props.onSubmit({ preventDefault() {} });
     assert.equal(h.sockets.length, 1); const lobbySocket = h.sockets[0]; assert.equal(lobbySocket.url, setup.socketUrl);
     lobbySocket.open(); assert.equal(lobbySocket.sent[0].roomCode, "ABCD");
+    assert.equal(lobbySocket.sent[0].playerName, undefined);
+    assert.equal(lobbySocket.sent[0].token, "test-token");
     const state = { type: "room_state", roomCode: "ABCD", started: false, maxPlayers: 51, maxStudents: 50, studentCount: 1,
       matchConfig: config, players: [{ id: "student", userId: 2, name: "student", isHost: false, ready: true }] };
     lobbySocket.message(state); h.render(components.Lobby);
@@ -142,17 +150,7 @@ for (const setup of [
 test("components reject a different classroom backend without opening a socket or masking the error", async () => {
   const h = harness("https:", "playtypetiles.com"); const components = await loadComponents("https://typetiles.onrender.com/api");
   try {
-    let tree = h.render(components.Lobby);
-    nodes(tree).find(node => node.type === "input" && node.props["aria-label"] === "Room code")
-      .props.onChange({ target: { value: "ABCD" } });
-    nodes(tree).find(node => node.type === "input" && node.props.value === "https://typetiles.onrender.com")
-      .props.onChange({ target: { value: "https://another-server.test" } });
-    tree = h.render(components.Lobby);
-    nodes(tree).find(node => node.type === "form").props.onSubmit({ preventDefault() {} });
-    tree = h.render(components.Lobby);
-    assert.equal(h.sockets.length, 0); assert.match(text(tree), /must match the login API/);
-    assert(!text(tree).includes("Connecting to the classroom host..."));
-    h.unmount();
+    let tree;
     h.render(() => components.Game({ mode: "multiplayer", roomCode: "ABCD", hostAddress: "https://another-server.test", matchConfig: config }));
     tree = h.render(() => components.Game({ mode: "multiplayer", roomCode: "ABCD", hostAddress: "https://another-server.test", matchConfig: config }));
     assert.equal(h.sockets.length, 0); assert.match(text(tree), /must match the login API/);
@@ -172,6 +170,22 @@ test("HTTPS with missing API configuration shows an error before login fetch or 
     let tree = h.render(components.Lobby);
     nodes(tree).find(node => node.type === "button" && text(node).trim() === "Connect").props.onClick();
     tree = h.render(components.Lobby);
-    assert.equal(h.sockets.length, 0); assert.match(text(tree), /Configure VITE_API_URL/);
+    assert.equal(h.sockets.length, 0); assert.match(text(tree), /Classroom connection is unavailable/);
+  } finally { h.unmount(); delete (globalThis as any).__endpointHarness; }
+});
+
+test("teacher hosting uses configured backend and authenticated identity without technical fields", async () => {
+  const h = harness("https:", "playtypetiles.com"); h.role = "teacher";
+  const components = await loadComponents("https://typetiles.onrender.com/api");
+  try {
+    const tree = h.render(components.Lobby);
+    assert.equal(nodes(tree).filter(node => node.type === "input").length, 0);
+    assert(!text(tree).includes("https://typetiles.onrender.com"));
+    assert.match(text(tree), /Signed in as\s+student/);
+    nodes(tree).find(node => node.type === "button" && text(node).trim() === "Create Classroom").props.onClick();
+    assert.equal(h.sockets[0].url, "wss://typetiles.onrender.com/ws");
+    h.sockets[0].open();
+    assert.equal(h.sockets[0].sent[0].type, "create_room");
+    assert.equal(h.sockets[0].sent[0].playerName, undefined);
   } finally { h.unmount(); delete (globalThis as any).__endpointHarness; }
 });

@@ -9,6 +9,7 @@ const navItems = [
   { label: "Home", to: "/app", icon: homeIcon, iconClassName: "h-5 w-5", end: true },
   { label: "Multiplayer", to: "/app/lobby", icon: Users, iconClassName: "h-5 w-5" },
   { label: "Results", to: "/app/results", icon: Trophy, iconClassName: "h-5 w-5" },
+  { label: "Student Progress", to: "/app/student-progress", icon: Users, iconClassName: "h-5 w-5", teacherOnly: true },
   { label: "Profile", to: "/app/customize", icon: UserRound, iconClassName: "h-5 w-5" },
 ] as const;
 
@@ -63,7 +64,7 @@ export function AppShell() {
           </div>
 
           <nav className="space-y-2">
-            {navItems.map((item) => (
+            {navItems.filter(item => !("teacherOnly" in item) || user?.role === "teacher").map((item) => (
               <NavLink
                 key={item.to}
                 to={item.to}

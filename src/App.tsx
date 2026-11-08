@@ -20,6 +20,7 @@ import Lobby from "./pages/Lobby";
 import Play from "./pages/Play";
 import PreMatch from "./pages/PreMatch";
 import Results from "./pages/Results";
+import StudentProgress from "./pages/StudentProgress";
 import Settings, { AboutTypeTiles, AccountSettings, FeedbackPage, HelpSupport, NotificationSettings } from "./pages/Settings";
 
 function GameRoute() {
@@ -73,6 +74,11 @@ function StudentWordBankRoute() {
   return user?.role === "student" ? <WordBank /> : <Navigate to="/app" replace />;
 }
 
+function TeacherStudentProgressRoute() {
+  const { user } = usePlayerAuth();
+  return user?.role === "teacher" ? <StudentProgress /> : <Navigate to="/app" replace />;
+}
+
 const DevGreggCropEditor = import.meta.env.DEV ? lazy(() => import("./data/dev/GreggCropEditor")) : null;
 const DevGreggExercise6Pilot = import.meta.env.DEV ? lazy(() => import("./data/dev/GreggExercise6Pilot")) : null;
 
@@ -99,6 +105,7 @@ export default function App() {
         <Route path="pre-match" element={<PreMatch />} />
         <Route path="game" element={<GameRoute />} />
         <Route path="results" element={<Results />} />
+        <Route path="student-progress" element={<TeacherStudentProgressRoute />} />
         <Route path="history" element={<History />} />
         <Route path="customize" element={<Customize />} />
         <Route path="word-bank" element={<StudentWordBankRoute />} />

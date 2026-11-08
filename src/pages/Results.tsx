@@ -15,6 +15,7 @@ import {
   type TeacherSession,
 } from "../lib/playerApi";
 import { usePlayerAuth } from "../lib/PlayerAuthContext";
+import { classroomStatusLabel } from "../lib/classroomStatus";
 
 type ResultState = {
   result?: GameResult;
@@ -120,7 +121,7 @@ export default function Results() {
               <div><span className="block text-slate-400">Room ID</span><strong className="text-white">#{teacherDetails.match.id}</strong></div>
               <div><span className="block text-slate-400">Date and Time</span><strong className="text-white">{formatDate(teacherDetails.match.created_at).date}</strong><span className="block text-slate-300">{formatDate(teacherDetails.match.created_at).time}</span></div>
               <div><span className="block text-slate-400">Participants</span><strong className="text-white">{teacherDetails.participants.length}</strong></div>
-              <div><span className="block text-slate-400">Status</span><strong className="text-emerald-300">{teacherDetails.match.status === "completed" ? "Complete" : "In progress"}</strong></div>
+              <div><span className="block text-slate-400">Status</span><strong className="text-emerald-300">{classroomStatusLabel(teacherDetails.match.status)}</strong></div>
             </div>
           </article>
 
@@ -231,7 +232,7 @@ export default function Results() {
                         <span className="text-slate-300">#{session.id}</span>
                         <span className="text-slate-300">{date.date}<span className="block text-[10px]">{date.time}</span></span>
                         <span className="text-white">{session.participant_count}</span>
-                        <span className="rounded-md bg-emerald-500 px-2 py-1 text-center font-semibold text-slate-950">{session.status === "completed" ? "Complete" : "In progress"}</span>
+                        <span className="rounded-md bg-emerald-500 px-2 py-1 text-center font-semibold text-slate-950">{classroomStatusLabel(session.status)}</span>
                         <ChevronRight className="h-4 w-4 text-white" />
                       </button>
                     );

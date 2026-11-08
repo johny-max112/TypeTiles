@@ -75,6 +75,33 @@ export type TeacherMatchDetails = {
   participants: TeacherParticipant[];
 };
 
+export type TeacherStudentProgress = {
+  id: number;
+  display_name: string;
+  username: string;
+  session_count: number;
+  average_wpm: number | null;
+  average_accuracy: number | null;
+  best_wpm: number | null;
+  latest_session_date: string;
+};
+
+export type TeacherStudentHistory = {
+  student: Pick<TeacherStudentProgress, "id" | "display_name" | "username">;
+  history: {
+    session_id: number;
+    session_date: string;
+    word_set: string;
+    difficulty: string;
+    score: number | null;
+    wpm: number | null;
+    accuracy: number | null;
+    position: number | null;
+    end_reason: "time" | "health";
+    completion_status: "Finished";
+  }[];
+};
+
 export type LeaderboardRow = {
   id: number;
   username: string;
@@ -237,6 +264,14 @@ export function getPlayerRank(): Promise<{ rank: number; stats: PlayerStats }> {
 
 export function getTeacherSessions(): Promise<{ sessions: TeacherSession[] }> {
   return authenticatedRequest<{ sessions: TeacherSession[] }>("/teacher/matches");
+}
+
+export function getTeacherStudentProgress(): Promise<{ students: TeacherStudentProgress[] }> {
+  return authenticatedRequest<{ students: TeacherStudentProgress[] }>("/teacher/students");
+}
+
+export function getTeacherStudentHistory(studentId: number): Promise<TeacherStudentHistory> {
+  return authenticatedRequest<TeacherStudentHistory>(`/teacher/students/${studentId}/history`);
 }
 
 export function getTeacherMatchDetails(matchId: number): Promise<TeacherMatchDetails> {

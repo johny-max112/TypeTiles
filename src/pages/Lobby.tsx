@@ -66,11 +66,7 @@ export default function Lobby() {
   const activeMatchRef = useRef(false);
   const connectedHostRef = useRef<string | null>(null);
 
-  const [hostAddress, setHostAddress] = useState(defaultHost);
-
-  const [playerName, setPlayerName] = useState(
-    user?.displayName || user?.username || "Player"
-  );
+  const hostAddress = defaultHost(); // Internal route identity, never editable/displayed.
 
   const [roomCode, setRoomCode] = useState(
     () => localStorage.getItem(LAN_ROOM_CODE_KEY) || ""
@@ -93,10 +89,11 @@ export default function Lobby() {
     let endpoint: BackendEndpoints;
     let socket: WebSocket;
     try {
-      endpoint = getBackendEndpoints(hostAddress);
+      endpoint = getBackendEndpoints();
       socket = new WebSocket(endpoint.webSocketUrl);
     } catch (error) {
-      setError(error instanceof Error ? error.message : "Invalid classroom endpoint configuration.");
+      if (import.meta.env.DEV) console.warn("Classroom endpoint configuration:", error);
+      setError("Classroom connection is unavailable. Please contact your teacher or administrator.");
       setStatus("idle");
       pendingMessageRef.current = null;
       pendingAfterReconnectRef.current = null;
@@ -104,7 +101,6 @@ export default function Lobby() {
     }
     socketRef.current?.close();
     setStatus("connecting");
-    setHostAddress(endpoint.backendOrigin);
     connectedHostRef.current = endpoint.backendOrigin;
 
     socketRef.current = socket;
@@ -375,7 +371,6 @@ export default function Lobby() {
     pendingMessageRef.current = {
       type: "join_room",
       roomCode: saved.roomCode,
-      playerName,
     };
 
     connect();
@@ -391,7 +386,6 @@ export default function Lobby() {
         pendingMessageRef.current = {
           type: "join_room",
           roomCode: room.roomCode,
-          playerName,
         };
 
         pendingAfterReconnectRef.current = message;
@@ -429,7 +423,6 @@ export default function Lobby() {
 
     send({
       type: "create_room",
-      playerName,
       mode: "LAN Match",
       difficulty: "Normal",
       wordSet: "General",
@@ -442,9 +435,6 @@ export default function Lobby() {
   const currentPlayer =
     room?.players.find(
       (player) => player.userId === user?.id
-    ) ??
-    room?.players.find(
-      (player) => player.name === playerName
     );
 
   const updateMatchConfig = (
@@ -483,7 +473,6 @@ export default function Lobby() {
     send({
       type: "join_room",
       roomCode,
-      playerName,
     });
   };
 
@@ -608,8 +597,8 @@ export default function Lobby() {
     status === "connected"
       ? room?.started && countdown === 0
         ? "Game Started"
-        : `Connected to ${hostAddress}`
-      : "Not connected to a host";
+        : "Connected to classroom"
+      : "Not connected";
 
   const playerColors = useMemo(
     () => [
@@ -703,35 +692,8 @@ export default function Lobby() {
           </div>
 
           <article className="mt-6 rounded-[9px] bg-[#11163d] p-6 sm:p-8">
-            <div className="grid gap-5 md:grid-cols-[1fr_1fr_auto] md:items-end">
-              <label className="text-sm text-white/70">
-                Your player name
-
-                <input
-                  value={playerName}
-                  onChange={(event) =>
-                    setPlayerName(
-                      event.target.value
-                    )
-                  }
-                  className="mt-2 h-11 w-full rounded-[7px] border border-white/10 bg-[#d7d7df] px-3 font-semibold text-[#161a3b] outline-none"
-                />
-              </label>
-
-              <label className="text-sm text-white/70">
-                Host address
-
-                <input
-                  value={hostAddress}
-                  disabled={status !== "idle"}
-                  onChange={(event) =>
-                    setHostAddress(
-                      event.target.value
-                    )
-                  }
-                  className="mt-2 h-11 w-full rounded-[7px] border border-white/10 bg-[#d7d7df] px-3 font-semibold text-[#161a3b] outline-none"
-                />
-              </label>
+            <div className="flex flex-wrap items-center justify-between gap-5">
+              <p className="text-sm text-white/70">Signed in as <strong className="text-white">{user?.username}</strong></p>
 
               <button
                 type="button"

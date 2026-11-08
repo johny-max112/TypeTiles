@@ -5,6 +5,7 @@ import { getDatabase } from "./db.js";
 import { normalizeRole, verifyToken, type AppRole } from "./auth.js";
 import { ClassroomConfigError, validateClassroomConfig, createClassroomSequence, type ClassroomMatchConfig } from "./classroomConfig.js";
 import { sessionEvents } from "./sessionEvents.js";
+import { completeClassroomMatch, cancelClassroomMatch } from "./classroomPersistence.js";
 
 export const DEFAULT_MAX_STUDENTS = 50;
 const STANDINGS_INTERVAL_MS = 250;
@@ -74,6 +75,8 @@ type Room = {
   deadlineTimer?: NodeJS.Timeout;
   idleTimer?: NodeJS.Timeout;
   finalization?: Promise<void>;
+  writeQueue?: Promise<void>;
+  closing?: boolean;
 };
 
 const rooms = new Map<string, Room>();
@@ -113,8 +116,7 @@ function broadcast(room: Room) {
   for (const player of room.players.values()) send(player.socket, state);
 }
 
-function broadcastStandings(room: Room) {
-  const players = getStudentResults(room);
+function broadcastStandings(room: Room, players = getStudentResults(room)) {
   const byUser = new Map(players.map(result => [result.userId, result]));
   for (const player of room.players.values()) {
     if (player.isHost) send(player.socket, { type: "standings_update", players, totalStudents: players.length });
@@ -163,39 +165,10 @@ function getStudentResults(room: Room) {
     .map((result, index) => ({ ...result, rank: index + 1 }));
 }
 
-async function persistClassroomResults(
-  room: Room,
-  results: ReturnType<typeof getStudentResults>,
-) {
-  if (!room.dbMatchId) return;
-
-  const db = getDatabase();
-  for (const [index, result] of results.entries()) {
-    if (result.userId === undefined) continue;
-
-    await db.run(
-      `UPDATE match_participants
-       SET score = ?, wpm = ?, accuracy = ?, completed_words = ?, end_reason = ?, remaining_lives = ?, position = ?, error_rate = ?
-       WHERE match_id = ? AND user_id = ?`,
-      [
-        result.score,
-        result.wpm,
-        result.accuracy,
-        result.completedWords,
-        result.finished ? (result.lives === 0 ? "health" : "time") : null,
-        result.lives,
-        index + 1,
-        result.completedWords === 0 && result.accuracy === 0 ? 0 : 100 - result.accuracy,
-        room.dbMatchId,
-        result.userId,
-      ],
-    );
-  }
-
-  await db.run(
-    "UPDATE matches SET status = 'completed', ended_at = CURRENT_TIMESTAMP WHERE id = ?",
-    [room.dbMatchId],
-  );
+function serializeRoomWrite<T>(room: Room, operation: () => Promise<T>): Promise<T> {
+  const task = (room.writeQueue ?? Promise.resolve()).then(operation);
+  room.writeQueue = task.then(() => {}, () => {});
+  return task;
 }
 
 async function getResultsForFinalization(
@@ -245,17 +218,26 @@ function clearRoomTimers(room: Room) {
 async function finalizeRoom(room: Room): Promise<void> {
   if (room.classroomResultsSent) return;
   if (room.finalization) return room.finalization;
-  room.finalization = (async () => {
+  room.finalization = serializeRoomWrite(room, async () => {
+    await Promise.all(room.participantWrites.values());
     const players = await getResultsForFinalization(room, getStudentResults(room));
-    await persistClassroomResults(room, players);
+    if (!room.dbMatchId) return;
+    const status = await completeClassroomMatch(room.dbMatchId, room.ownerUserId, players);
+    if (status !== "completed") return;
+    const livePlayers = new Map(getStudentResults(room).map(player => [player.userId, player]));
+    const positions = await getDatabase().all("SELECT user_id, position FROM match_participants WHERE match_id=?", room.dbMatchId);
+    const savedRanks = new Map<number, number>(positions.map((row: any) => [row.user_id, row.position]));
+    const savedPlayers = (await getResultsForFinalization(room, [])).map(player => ({ ...player,
+      rank: savedRanks.get(player.userId!) ?? player.rank,
+      connected: livePlayers.get(player.userId)?.connected ?? false })).sort((left, right) => left.rank - right.rank);
     room.classroomResultsSent = true;
     clearTimeout(room.standingsTimer);
     clearTimeout(room.deadlineTimer);
-    broadcastStandings(room);
+    broadcastStandings(room, savedPlayers);
     for (const participant of room.players.values()) {
-      send(participant.socket, { type: "classroom_results", roomCode: room.code, players });
+      send(participant.socket, { type: "classroom_results", roomCode: room.code, players: savedPlayers });
     }
-  })();
+  });
   try { await room.finalization; }
   catch (error) { room.finalization = undefined; throw error; }
 }
@@ -529,6 +511,10 @@ export function attachLanServer(server: import("http").Server,
             send(socket, { type: "error", message: "Room not found. Check the room code." });
             return;
           }
+          if (room.closing) {
+            send(socket, { type: "error", message: "This classroom is closing." });
+            return;
+          }
           const otherRoom = [...rooms.values()].find(candidate => candidate.players.has(player.id));
           if ((otherRoom && otherRoom !== room) || (player.userId !== undefined && player.userId !== identity.userId)) {
             send(socket, { type: "error", message: "Leave your current room before joining another account or room." });
@@ -628,8 +614,16 @@ export function attachLanServer(server: import("http").Server,
             return;
           }
 
+          room.closing = true;
+          let terminalStatus: string;
+          try {
+            terminalStatus = await serializeRoomWrite(room, () => room.dbMatchId
+              ? cancelClassroomMatch(room.dbMatchId, room.ownerUserId) : Promise.resolve("unavailable"));
+            if (terminalStatus === "unavailable") throw new Error("Classroom cancellation is unavailable");
+          } catch (error) { room.closing = false; throw error; }
+
           for (const participant of room.players.values()) {
-            send(participant.socket, { type: "room_cancelled", roomCode: room.code, message: "The teacher cancelled this classroom." });
+            send(participant.socket, { type: "room_cancelled", roomCode: room.code, message: terminalStatus === "cancelled" ? "The teacher cancelled this classroom." : "The teacher closed this classroom." });
           }
           rooms.delete(room.code);
           clearRoomTimers(room);
@@ -644,7 +638,7 @@ export function attachLanServer(server: import("http").Server,
             }
             const results = await getResultsForFinalization(room, getStudentResults(room));
             if (results.some((result) => result.score !== 0 || result.wpm !== 0 || result.accuracy !== 0 || result.finished)) {
-              await persistClassroomResults(room, results);
+              await finalizeRoom(room);
             }
           }
           if (!room.started && !player.isHost && player.userId !== undefined) {
@@ -699,7 +693,7 @@ export function attachLanServer(server: import("http").Server,
           broadcastStandings(room);
         } else if (message.type === "score_update") {
           if (player.role !== "student" || !player.userId || !room.started) return;
-          if (room.classroomResultsSent || room.finalization) return;
+          if (room.classroomResultsSent || room.finalization || room.closing) return;
           if (player.performance?.finished) {
             if ([...room.students.values()].every(student => student.performance?.finished)) await finalizeRoom(room);
             return;
@@ -722,10 +716,11 @@ export function attachLanServer(server: import("http").Server,
 
           player.performance = { score, wpm, accuracy, lives, completedWords, finished };
           if (room.dbMatchId && player.userId) {
-            await getDatabase().run(
+            await serializeRoomWrite(room, () => getDatabase().run(
               `UPDATE match_participants
                SET score = ?, wpm = ?, accuracy = ?, completed_words = ?, remaining_lives = ?, end_reason = ?, error_rate = ?
-               WHERE match_id = ? AND user_id = ?`,
+               WHERE match_id = ? AND user_id = ?
+                 AND EXISTS (SELECT 1 FROM matches WHERE id = ? AND status = 'active' AND owner_user_id = ?)`,
               [
                 score,
                 wpm,
@@ -736,8 +731,10 @@ export function attachLanServer(server: import("http").Server,
                 completedWords === 0 && accuracy === 0 ? 0 : 100 - accuracy,
                 room.dbMatchId,
                 player.userId,
+                room.dbMatchId,
+                room.ownerUserId,
               ],
-            );
+            ));
           }
           queueStandings(room);
 

@@ -1,0 +1,123 @@
+erDiagram
+    direction LR
+    users ||--o| user_stats : summarizes
+    users |o--o{ matches : owns
+    users ||--o{ match_participants : participates
+    matches ||--o{ match_participants : contains
+    users ||--o{ match_results : receives
+    matches ||--o{ match_results : has
+    users ||--o{ admin_logs : performs
+    users |o--o{ admin_logs : targets
+    users ||--o{ feedback : submits
+    users ||--o{ email_verification_codes : verifies
+    users ||--o{ password_reset_codes : resets
+    users {
+        INTEGER id PK
+        TEXT username UK
+        TEXT email UK
+        TEXT password_hash
+        TEXT display_name
+        TEXT avatar
+        TEXT tier
+        TEXT role
+        INTEGER is_banned
+        TIMESTAMPTZ created_at
+        TIMESTAMPTZ updated_at
+        TEXT background
+        INTEGER session_version
+        INTEGER email_verified
+        BIGINT email_verified_at
+    }
+    email_verification_codes {
+        INTEGER id PK
+        INTEGER user_id FK
+        TEXT code_hash
+        BIGINT expires_at
+        INTEGER attempts
+        BIGINT consumed_at
+        BIGINT created_at
+        BIGINT updated_at
+    }
+    email_verification_rate_limits {
+        TEXT key PK
+        BIGINT window_start
+        INTEGER count
+        BIGINT last_request
+    }
+    password_reset_codes {
+        INTEGER id PK
+        INTEGER user_id FK
+        TEXT code_hash
+        BIGINT expires_at
+        INTEGER attempts
+        BIGINT consumed_at
+        BIGINT created_at
+        BIGINT updated_at
+    }
+    password_reset_rate_limits {
+        TEXT key PK
+        BIGINT window_start
+        INTEGER count
+        BIGINT last_request
+    }
+    user_stats {
+        INTEGER id PK
+        INTEGER user_id FK,UK
+        INTEGER games_played
+        INTEGER wins
+        INTEGER losses
+        INTEGER total_score
+        REAL best_wpm
+        REAL avg_accuracy
+        INTEGER top_combo
+        TIMESTAMPTZ updated_at
+    }
+    matches {
+        INTEGER id PK
+        TEXT mode
+        TEXT difficulty
+        INTEGER round_time
+        TEXT word_set
+        TEXT status
+        TIMESTAMPTZ created_at
+        TIMESTAMPTZ ended_at
+        TEXT practice_format
+        TEXT background
+        INTEGER owner_user_id FK
+    }
+    match_participants {
+        INTEGER id PK
+        INTEGER match_id FK
+        INTEGER user_id FK
+        INTEGER score
+        REAL wpm
+        REAL accuracy
+        INTEGER position
+        TIMESTAMPTZ created_at
+        INTEGER completed_words
+        REAL error_rate
+        TEXT end_reason
+        INTEGER remaining_lives
+    }
+    match_results {
+        INTEGER id PK
+        INTEGER match_id FK
+        INTEGER user_id FK
+        TEXT result
+        INTEGER rank_change
+        TIMESTAMPTZ created_at
+    }
+    admin_logs {
+        INTEGER id PK
+        INTEGER admin_id FK
+        TEXT action
+        INTEGER target_user_id FK
+        TEXT details
+        TIMESTAMPTZ created_at
+    }
+    feedback {
+        INTEGER id PK
+        INTEGER user_id FK
+        TEXT message
+        TIMESTAMPTZ created_at
+    }

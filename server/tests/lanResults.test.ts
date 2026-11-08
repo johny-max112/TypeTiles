@@ -12,6 +12,7 @@ import { initializeDatabase, closeDatabase } from "../src/db.js";
 import { generateToken } from "../src/auth.js";
 import { attachLanServer } from "../src/lan.js";
 import matchesRoutes from "../src/routes/matches.js";
+import { resultIntegrityChecks } from "./resultIntegrityChecks.js";
 
 test("LAN results combine with sentence history and teacher ownership", { timeout: 30_000 }, async () => {
   const directory = await mkdtemp(join(tmpdir(), "typetiles-lan-results-"));
@@ -72,6 +73,7 @@ test("LAN results combine with sentence history and teacher ownership", { timeou
     const detail = await (await request(`/teacher/matches/${match.id}`, 0)).json();
     assert.equal(detail.participants.length, 2); assert(detail.participants.every((p: any) => p.participant_status === "Finished"));
     assert.equal((await db.get("SELECT games_played FROM user_stats WHERE user_id = ?", identities[1].id)).games_played, 0);
+    await resultIntegrityChecks(db, base, match.id);
     await closeDatabase(); const reopened = await initializeDatabase();
     assert.equal((await reopened.get("SELECT status FROM matches WHERE id = ?", match.id)).status, "completed");
     assert.equal((await (await request("/users/history", 1)).json()).history[0].score, 10);
