@@ -374,6 +374,28 @@ export function attachLanServer(server: import("http").Server,
     }
   };
   sessionEvents.on("invalidate", invalidate);
+  const deleted = (userId: number) => {
+    for (const room of ownedRooms) {
+      if (room.ownerUserId === userId) {
+        clearRoomTimers(room);
+        rooms.delete(room.code);
+        ownedRooms.delete(room);
+        for (const participant of room.players.values()) {
+          send(participant.socket, { type: "room_cancelled", roomCode: room.code, message: "The classroom host account was deleted." });
+          participant.socket.close(4001, "Classroom closed.");
+        }
+      } else if (room.students.delete(userId)) {
+        room.participantWrites.delete(userId);
+        for (const participant of room.players.values()) {
+          if (participant.userId === userId) leaveRoom(participant, true);
+        }
+        broadcast(room);
+        if (room.started) queueStandings(room);
+      }
+    }
+    invalidate(userId);
+  };
+  sessionEvents.on("delete", deleted);
   // Also detects resets from another backend process; every message is revalidated below.
   const sweep = setInterval(() => {
     for (const player of connections) {
@@ -390,6 +412,7 @@ export function attachLanServer(server: import("http").Server,
   webSocketServer.on("close", () => {
     clearInterval(sweep);
     sessionEvents.off("invalidate", invalidate);
+    sessionEvents.off("delete", deleted);
     for (const room of ownedRooms) {
       clearRoomTimers(room);
       if (rooms.get(room.code) === room) rooms.delete(room.code);

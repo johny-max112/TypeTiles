@@ -21,6 +21,7 @@ export default function UsersPage() {
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [showModal, setShowModal] = useState(false);
   const [feedback, setFeedback] = useState("");
+  const [deletingId, setDeletingId] = useState<number | null>(null);
 
   useEffect(() => {
     loadUsers();
@@ -98,6 +99,20 @@ export default function UsersPage() {
     } catch (err: any) {
       setFeedback(err.response?.data?.error || "Failed to update user role");
     }
+  };
+
+  const handleDeleteUser = async (user: User) => {
+    if (user.role === "admin" || deletingId !== null) return;
+    if (prompt(`Permanently delete ${user.display_name} (${user.email})? This removes their scores, history, feedback and verification data. Their hosted classroom will close. Shared matches remain. Type their username "${user.username}" to confirm.`) !== user.username) return;
+    setDeletingId(user.id);
+    setFeedback("");
+    try {
+      const response = await apiClient.deleteUser(user.id);
+      setUsers(current => current.filter(item => item.id !== user.id));
+      setFeedback(response.data.message);
+    } catch (err: any) {
+      setFeedback(err.response?.data?.error || "Failed to delete user");
+    } finally { setDeletingId(null); }
   };
 
   return (
@@ -204,6 +219,16 @@ export default function UsersPage() {
                         >
                           <RotateCcw className="w-4 h-4" />
                         </button>
+                        {user.role !== "admin" ? (
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteUser(user)}
+                            disabled={deletingId !== null}
+                            className="rounded border border-red-700 px-2 py-1 text-xs text-red-300 hover:bg-red-900/50 disabled:opacity-50"
+                          >
+                            {deletingId === user.id ? "Deleting..." : "Delete"}
+                          </button>
+                        ) : null}
                         {user.role !== "admin" ? (
                           <button
                             type="button"

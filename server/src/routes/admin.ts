@@ -1,11 +1,45 @@
 import { Router, Request, Response } from "express";
 import { getDatabase, databaseTransaction } from "../db.js";
 import { authMiddleware, adminMiddleware } from "../middleware.js";
+import { sessionEvents } from "../sessionEvents.js";
 
 const router = Router();
 
 // Apply both auth and admin middleware
 router.use(authMiddleware, adminMiddleware);
+
+router.delete("/users/:userId", async (req: Request, res: Response) => {
+  const userId = Number(req.params.userId);
+  if (!Number.isSafeInteger(userId) || userId < 1) return res.status(400).json({ error: "Invalid user ID" });
+  try {
+    const outcome = await databaseTransaction(async (db) => {
+      const user = await db.get("SELECT id, role FROM users WHERE id = ?", userId);
+      if (!user) return "missing";
+      if (user.role === "admin" || userId === req.user!.userId) return "protected";
+      // Keep shared matches and audit history, without dangling foreign keys.
+      await db.run("UPDATE matches SET owner_user_id = NULL WHERE owner_user_id = ?", userId);
+      await db.run("UPDATE admin_logs SET target_user_id = NULL, details = COALESCE(details, '') || ? WHERE target_user_id = ?",
+        ` [Deleted target user ID ${userId}]`, userId);
+      // An account formerly provisioned as Admin may have authored audit records.
+      const authoredLog = await db.get("SELECT id FROM admin_logs WHERE admin_id = ? LIMIT 1", userId);
+      if (authoredLog) throw new Error("AUDIT_AUTHOR_PROTECTED");
+      await db.run("DELETE FROM users WHERE id = ?", userId);
+      await db.run("INSERT INTO admin_logs(admin_id,action,details) VALUES(?,?,?)",
+        req.user!.userId, "delete_user", `Permanently deleted user ID ${userId}`);
+      return "deleted";
+    });
+    if (outcome === "missing") return res.status(404).json({ error: "User not found" });
+    if (outcome === "protected") return res.status(403).json({ error: "Admin accounts cannot be deleted" });
+    sessionEvents.emit("delete", userId);
+    return res.json({ message: "User deleted. Their username and email can be registered again, subject to normal verification limits." });
+  } catch (error) {
+    if (error instanceof Error && error.message === "AUDIT_AUTHOR_PROTECTED") {
+      return res.status(409).json({ error: "This account authored Admin audit records and cannot be deleted." });
+    }
+    console.error("Delete user failed.");
+    return res.status(500).json({ error: "Unable to delete user" });
+  }
+});
 
 // Ban user
 router.post("/users/:userId/ban", async (req: Request, res: Response) => {

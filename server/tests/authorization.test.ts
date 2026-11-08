@@ -13,12 +13,14 @@ import { attachLanServer } from "../src/lan.js";
 import matchesRoutes from "../src/routes/matches.js";
 import adminRoutes from "../src/routes/admin.js";
 import { authorizationChecks } from "./authorizationChecks.js";
+import { userDeletionChecks } from "./userDeletionChecks.js";
 
 test("SQLite REST and WebSocket ownership, membership, role revocation and Admin protection", { timeout: 30_000 }, async () => {
   const directory = await mkdtemp(join(tmpdir(), "typetiles-authorization-"));
   process.env.DATABASE_PROVIDER = "sqlite";
   process.env.DATABASE_PATH = join(directory, "test.db");
   process.env.JWT_SECRET = randomBytes(32).toString("hex");
+  process.env.EMAIL_VERIFICATION_SECRET = randomBytes(32).toString("hex");
   const db = await initializeDatabase();
   const app = express(); app.use(express.json());
   app.use("/api", matchesRoutes); app.use("/api/admin", adminRoutes);
@@ -28,6 +30,7 @@ test("SQLite REST and WebSocket ownership, membership, role revocation and Admin
     server.listen(0, "127.0.0.1"); await once(server, "listening");
     const address = server.address(); assert(address && typeof address !== "string");
     await authorizationChecks(db, `http://127.0.0.1:${address.port}/api`, `ws://127.0.0.1:${address.port}/ws`, sockets);
+    await userDeletionChecks(db, `http://127.0.0.1:${address.port}/api`, `ws://127.0.0.1:${address.port}/ws`, sockets);
     await closeDatabase(); const reopened = await initializeDatabase();
     assert.equal((await reopened.get("SELECT owner_user_id FROM matches WHERE owner_user_id IS NOT NULL")).owner_user_id, 1);
   } finally {

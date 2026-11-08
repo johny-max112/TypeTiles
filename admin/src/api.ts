@@ -57,6 +57,10 @@ class APIClient {
     return this.client.post(`/admin/users/${userId}/ban`, { reason });
   }
 
+  async deleteUser(userId: number) {
+    return this.client.delete(`/admin/users/${userId}`);
+  }
+
   async unbanUser(userId: number) {
     return this.client.post(`/admin/users/${userId}/unban`);
   }
