@@ -153,11 +153,14 @@ async function request<T>(path: string, options: RequestInit = {}, token?: strin
   return data;
 }
 
+export type RegistrationRole = "student" | "teacher";
+
 export function registerPlayer(input: {
   username: string;
   email: string;
   password: string;
   displayName: string;
+  role: RegistrationRole;
 }): Promise<RegistrationResponse> {
   return request<RegistrationResponse>("/auth/register", {
     method: "POST",

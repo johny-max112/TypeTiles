@@ -21,6 +21,7 @@ import feedbackRoutes from "../src/routes/feedback.js";
 import { generateToken } from "../src/auth.js";
 import { attachLanServer } from "../src/lan.js";
 import { authorizationChecks } from "./authorizationChecks.js";
+import { registrationRoleChecks } from "./registrationRoleChecks.js";
 
 test("classroom ownership migration preserves legacy accounts/results and is idempotent", async () => {
   const engine = new PGlite();
@@ -217,6 +218,10 @@ test("PostgreSQL engine: registration, recovery, Solo/history, admin and LAN per
     await t.test("PostgreSQL REST/WebSocket security checks", async () => {
       const address = server.address(); assert(address && typeof address !== "string");
       await authorizationChecks(db, `http://127.0.0.1:${address.port}/api`, `ws://127.0.0.1:${address.port}/ws`, sockets);
+    });
+    await t.test("PostgreSQL direct registration roles and verified classroom access", async () => {
+      const address = server.address(); assert(address && typeof address !== "string");
+      await registrationRoleChecks(db, `http://127.0.0.1:${address.port}/api`, `ws://127.0.0.1:${address.port}/ws`, sockets, mail);
     });
   } finally {
     for (const socket of sockets) socket.terminate();

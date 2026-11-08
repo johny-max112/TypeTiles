@@ -21,10 +21,16 @@ export class RegistrationError extends Error {
   constructor(public readonly status: number, message: string) { super(message); }
 }
 
-export type RegistrationInput = { username: string; email: string; password: string; displayName: string };
+export type RegistrationRole = "student" | "teacher";
+export type RegistrationInput = { username: string; email: string; password: string; displayName: string; role: RegistrationRole };
 export function validateRegistration(body: unknown): RegistrationInput {
-  if (!body || typeof body !== "object") throw new RegistrationError(400, "Missing required fields");
+  if (!body || typeof body !== "object" || Array.isArray(body)) throw new RegistrationError(400, "Missing required fields");
   const { username, email, password, displayName } = body as Record<string, unknown>;
+  // Only omission supports legacy clients. Explicit invalid values never become students.
+  const role = Object.prototype.hasOwnProperty.call(body, "role") ? (body as Record<string, unknown>).role : "student";
+  if (role !== "student" && role !== "teacher") {
+    throw new RegistrationError(400, "Registration role must be student or teacher");
+  }
   if (typeof username !== "string" || typeof displayName !== "string" || !username.trim() || !displayName.trim()) {
     throw new RegistrationError(400, "Username and display name are required");
   }
@@ -37,7 +43,7 @@ export function validateRegistration(body: unknown): RegistrationInput {
   }
   if (!validResetPassword(password)) throw new RegistrationError(400, "Password must be at least 6 characters and at most 72 UTF-8 bytes");
   // Preserve existing username/display-name values; validate without silently renaming accounts.
-  return { username, email: normalized, password, displayName };
+  return { username, email: normalized, password, displayName, role };
 }
 
 function hmac(value: string): string {
@@ -101,7 +107,7 @@ export class EmailVerificationService {
         || !await allowRate(db, `send:email:${input.email}`, now, 3_600_000, 3, VERIFICATION_COOLDOWN_MS)) {
         throw new RegistrationError(429, "Too many verification requests. Please try again later.");
       }
-      const result = await db.run("INSERT INTO users(username,email,password_hash,display_name,email_verified) VALUES(?,?,?,?,0)", input.username, input.email, passwordHash, input.displayName);
+      const result = await db.run("INSERT INTO users(username,email,password_hash,display_name,role,email_verified) VALUES(?,?,?,?,?,0)", input.username, input.email, passwordHash, input.displayName, input.role);
       if (typeof result.lastID !== "number") throw new Error("Registration failed");
       await db.run("INSERT INTO user_stats(user_id) VALUES(?)", result.lastID);
       return this.issue(db, { id: result.lastID, email: input.email }, now);

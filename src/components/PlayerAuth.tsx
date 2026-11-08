@@ -4,7 +4,7 @@ import { Dices } from "lucide-react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { usePlayerAuth } from "../lib/PlayerAuthContext";
 import { HudBackground } from "./HudBackground";
-import { ApiError } from "../lib/playerApi";
+import { ApiError, type RegistrationRole } from "../lib/playerApi";
 
 export default function PlayerAuth() {
   const location = useLocation();
@@ -16,6 +16,7 @@ export default function PlayerAuth() {
   const [email, setEmail] = useState("");
   const [displayName, setDisplayName] = useState("");
   const [password, setPassword] = useState("");
+  const [registrationRole, setRegistrationRole] = useState<RegistrationRole>("student");
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [verificationRequired, setVerificationRequired] = useState(false);
@@ -28,7 +29,7 @@ export default function PlayerAuth() {
 
     try {
       if (isRegister) {
-        await register({ username, email, password, displayName });
+        await register({ username, email, password, displayName, role: registrationRole });
         setPassword("");
         navigate("/verify-email", { replace: true });
       } else {
@@ -54,13 +55,31 @@ export default function PlayerAuth() {
           <div className="mt-1 bg-gradient-to-r from-[#6a9eff] to-[#1183bb] bg-clip-text font-['Orbitron'] text-3xl font-extrabold text-transparent sm:text-4xl">TypeTiles</div>
           <h1 className="mt-6 text-2xl font-bold uppercase tracking-[0.16em]">{isRegister ? "Create Account" : "Login"}</h1>
           <p className="mt-2 text-center text-sm text-white/70">
-            {isRegister ? "Create your player account to track matches." : "Sign in to continue to your matches."}
+            {isRegister ? "Choose your account type and verify your email to get started." : "Sign in to continue to your matches."}
           </p>
         </div>
 
         {!isRegister && (location.state as { emailVerified?: boolean } | null)?.emailVerified === true ? <p role="status" className="text-sm text-emerald-300">Email verified. Log in to continue.</p> : null}
 
         <form className="mt-6 space-y-4" onSubmit={submit}>
+          {isRegister ? (
+            <fieldset disabled={submitting}>
+              <legend className="mb-2 text-sm text-white/80">Account type</legend>
+              <div className="grid gap-3 sm:grid-cols-2">
+                {(["student", "teacher"] as const).map((role) => (
+                  <label key={role} className={`flex cursor-pointer items-start gap-3 rounded-[10px] border p-3 ${registrationRole === role ? "border-[#6a9eff] bg-[#454ec3]/20" : "border-white/20 bg-white/5"}`}>
+                    <input type="radio" name="registration-role" value={role} checked={registrationRole === role} onChange={() => setRegistrationRole(role)} className="mt-1 accent-[#6a9eff]" />
+                    <span>
+                      <span className="block text-sm font-semibold">{role === "student" ? "Student" : "Teacher"}</span>
+                      <span className="mt-1 block text-xs leading-relaxed text-white/70">
+                        {role === "student" ? "Practice typing and join multiplayer classrooms." : "Host classrooms and review your students' session results."}
+                      </span>
+                    </span>
+                  </label>
+                ))}
+              </div>
+            </fieldset>
+          ) : null}
           {isRegister ? (
             <label className="block text-sm text-white/80">
               Display name

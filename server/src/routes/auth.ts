@@ -16,6 +16,7 @@ interface RegisterBody {
   email: string;
   password: string;
   displayName: string;
+  role?: "student" | "teacher";
 }
 
 interface LoginBody {

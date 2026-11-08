@@ -44,7 +44,7 @@ const react = {
   },
 };
 const browser = {
-  location: { hostname: 'mock.local' },
+  location: { hostname: 'mock.local', protocol: 'http:' },
   setTimeout(callback, delay) { const id = ++timerId; timers.set(id, { callback, delay }); return id; },
   clearTimeout(id) { timers.delete(id); },
   setInterval(callback, delay) { const id = ++timerId; timers.set(id, { callback, delay, interval: true }); return id; },
@@ -69,7 +69,7 @@ function load(filename) {
   };
   vm.runInNewContext(source, {
     module, exports: module.exports, require: requireMock, window: browser, Date: { now: () => clock },
-    AbortController, Error, TextEncoder,
+    AbortController, Error, TextEncoder, URL,
     localStorage: { getItem: () => null, setItem: (...args) => storageWrites.push(args), removeItem: (...args) => storageWrites.push(args) },
     fetch: async (url, options) => {
       requests.push({ url, options });
@@ -115,10 +115,20 @@ const submit = tree => form(tree).props.onSubmit({ preventDefault() {} });
   assert.equal(authValue.verificationEmail, 'student@example.com');
 
   const signup = renderer(PlayerAuth);
+  const roleInputs = () => nodes(signup.render(), node => node.type === 'input' && node.props.name === 'registration-role');
+  assert.deepEqual(roleInputs().map(node => node.props.value).sort(), ['student', 'teacher']);
+  assert.equal(roleInputs().find(node => node.props.value === 'student').props.checked, true);
   for (const [autocomplete, value] of [['username', 'student'], ['email', 'student@example.com'], ['new-password', 'test-password'], ['name', 'Student']]) {
     nodes(signup.render(), node => node.type === 'input' && node.props.autoComplete === autocomplete)[0].props.onChange({ target: { value } });
   }
   await submit(signup.render());
+  assert.equal(JSON.parse(requests.at(-1).options.body).role, 'student');
+  assert.equal(navigation.at(-1)[0], '/verify-email');
+  assert.equal(storageWrites.length, 0);
+  roleInputs().find(node => node.props.value === 'teacher').props.onChange();
+  assert.equal(roleInputs().find(node => node.props.value === 'teacher').props.checked, true);
+  await submit(signup.render());
+  assert.equal(JSON.parse(requests.at(-1).options.body).role, 'teacher');
   assert.equal(navigation.at(-1)[0], '/verify-email');
   assert.equal(storageWrites.length, 0);
   signup.dispose();
@@ -172,6 +182,7 @@ const submit = tree => form(tree).props.onSubmit({ preventDefault() {} });
 
   location = { pathname: '/login', state: null };
   const login = renderer(PlayerAuth);
+  assert.equal(nodes(login.render(), node => node.type === 'input' && node.props.name === 'registration-role').length, 0);
   reply = { status: 403, body: { error: 'Verify email', code: 'EMAIL_VERIFICATION_REQUIRED' } };
   await submit(login.render());
   assert.ok(nodes(login.render(), node => node.type === 'link' && node.props.to === '/verify-email').length);

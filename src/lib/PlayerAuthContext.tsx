@@ -9,6 +9,7 @@ import {
   type PlayerStats,
   type PlayerUser,
   type RegistrationResponse,
+  type RegistrationRole,
 } from "./playerApi";
 
 type RegisterInput = {
@@ -16,6 +17,7 @@ type RegisterInput = {
   email: string;
   password: string;
   displayName: string;
+  role: RegistrationRole;
 };
 
 type PlayerAuthContextValue = {

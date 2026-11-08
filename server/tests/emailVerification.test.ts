@@ -89,14 +89,14 @@ test("email verification integration: isolated SQLite and mocked delivery", { ti
       }
     });
 
-    await t.test("registration is pending, normalized, atomic, token-free and cannot assign public roles", async () => {
-      const result = await post("/register", { username: "pending", email: " Pending@Example.COM ", password: "new-password", displayName: "Pending", role: "admin" });
+    await t.test("registration is pending, normalized, atomic, token-free and defaults legacy clients to student", async () => {
+      const result = await post("/register", { username: "pending", email: " Pending@Example.COM ", password: "new-password", displayName: "Pending" });
       assert.equal(result.status, 201);
       assert.deepEqual(Object.keys(result.body).sort(), ["message", "verificationRequired"]);
       const user = await userFor("pending");
       assert.equal(user.email, "pending@example.com");
       assert.equal(user.email_verified, 0);
-      assert.equal(user.role, "player");
+      assert.equal(user.role, "student");
       assert.equal(user.session_version, 0);
       assert.ok(await db.get("SELECT id FROM user_stats WHERE user_id=?", user.id));
       const row = await db.get("SELECT * FROM email_verification_codes WHERE user_id=?", user.id);
