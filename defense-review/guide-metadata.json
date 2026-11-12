@@ -1,0 +1,27 @@
+{
+  "title": "Type Tiles: A Gamified Standalone Typing Application Using Falling Tile Mechanics for Skill Development",
+  "chapters": [
+    "System overview",
+    "Project folder structure",
+    "Application startup and routing",
+    "Authentication and role-based access",
+    "Database architecture and ERD",
+    "Phaser 3 gameplay engine",
+    "Scoring, WPM and accuracy",
+    "Gregg stenography implementation",
+    "Multiplayer classroom system",
+    "Teacher-specific student progress",
+    "REST API documentation",
+    "Security review",
+    "Testing and quality assurance",
+    "Deployment and environment",
+    "Developer defense questions",
+    "Code walkthrough for live defense",
+    "Final developer study guide"
+  ],
+  "questionCount": 40,
+  "sourceCount": 117,
+  "words": 15224,
+  "applicationTestsExecuted": false,
+  "applicationBuildsExecuted": false
+}

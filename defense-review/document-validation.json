@@ -1,0 +1,134 @@
+{
+  "chapters": 17,
+  "images": [
+    {
+      "src": "architecture.svg",
+      "loaded": true
+    },
+    {
+      "src": "authentication.svg",
+      "loaded": true
+    },
+    {
+      "src": "database-erd.svg",
+      "loaded": true
+    },
+    {
+      "src": "multiplayer-sequence.svg",
+      "loaded": true
+    }
+  ],
+  "overflow": [],
+  "headings": [
+    "Type Tiles: A Gamified Standalone Typing Application Using Falling Tile Mechanics for Skill Development",
+    "Table of contents",
+    "1. System overview",
+    "2. Project folder structure",
+    "3. Application startup and routing",
+    "4. Authentication and role-based access",
+    "5. Database architecture and ERD",
+    "6. Phaser 3 gameplay engine",
+    "7. Scoring, WPM and accuracy",
+    "8. Gregg stenography implementation",
+    "9. Multiplayer classroom system",
+    "10. Teacher-specific student progress",
+    "11. REST API documentation",
+    "12. Security review",
+    "13. Testing and quality assurance",
+    "14. Deployment and environment",
+    "15. Developer defense questions",
+    "16. Code walkthrough for live defense",
+    "17. Final developer study guide"
+  ],
+  "tableRows": 184,
+  "bodyText": 112630,
+  "pdfPages": 55,
+  "pdfBytes": 903035,
+  "mediaBoxes": [
+    "0 0 594.95996 841.91998"
+  ],
+  "questions": 40,
+  "markdownCharacters": 117811,
+  "pdfGeneratedFromSameMarkdown": true,
+  "pdfChapterPages": [
+    {
+      "title": "1. System overview",
+      "page": 3
+    },
+    {
+      "title": "2. Project folder structure",
+      "page": 6
+    },
+    {
+      "title": "3. Application startup and routing",
+      "page": 9
+    },
+    {
+      "title": "4. Authentication and role-based access",
+      "page": 11
+    },
+    {
+      "title": "5. Database architecture and ERD",
+      "page": 14
+    },
+    {
+      "title": "6. Phaser 3 gameplay engine",
+      "page": 17
+    },
+    {
+      "title": "7. Scoring, WPM and accuracy",
+      "page": 19
+    },
+    {
+      "title": "8. Gregg stenography implementation",
+      "page": 21
+    },
+    {
+      "title": "9. Multiplayer classroom system",
+      "page": 23
+    },
+    {
+      "title": "10. Teacher-specific student progress",
+      "page": 27
+    },
+    {
+      "title": "11. REST API documentation",
+      "page": 29
+    },
+    {
+      "title": "12. Security review",
+      "page": 34
+    },
+    {
+      "title": "13. Testing and quality assurance",
+      "page": 36
+    },
+    {
+      "title": "14. Deployment and environment",
+      "page": 39
+    },
+    {
+      "title": "15. Developer defense questions",
+      "page": 41
+    },
+    {
+      "title": "16. Code walkthrough for live defense",
+      "page": 49
+    },
+    {
+      "title": "17. Final developer study guide",
+      "page": 52
+    }
+  ],
+  "pdfOpen": {
+    "url": "file:///C:/Users/deo/OneDrive/Desktop/type-tiles1/defense-review/TypeTiles_Developer_Defense_Study_Guide.pdf",
+    "contentType": "application/pdf",
+    "hasPdfEmbed": false
+  },
+  "pdfSamplePages": [
+    14,
+    29,
+    41,
+    52
+  ]
+}

@@ -1,0 +1,592 @@
+{
+  "date": "2026-11-09",
+  "timezone": "Asia/Manila",
+  "scope": "Application source, tests and migrations; environment files intentionally excluded",
+  "files": [
+    {
+      "path": "src/App.tsx",
+      "bytes": 5228,
+      "sha256": "c0a757a52d17eb85c4431d946d1dedfd0ef3759479800a76070feda9a2204de4"
+    },
+    {
+      "path": "src/components/AppShell.tsx",
+      "bytes": 5914,
+      "sha256": "f70cbed77b3bf5e57576d54d79699d4167c263167833922a27ca8cdac7f44344"
+    },
+    {
+      "path": "src/components/ClassroomFormatSelect.tsx",
+      "bytes": 1110,
+      "sha256": "ad43c97080c0f28334ea0df48e69957e0a029ad52c751412a6ae133d94be2a56"
+    },
+    {
+      "path": "src/components/ClassroomLeaderboard.tsx",
+      "bytes": 2727,
+      "sha256": "425c6506bfaecb631d179182af169a98bf38f66846e303be1fc820929663a816"
+    },
+    {
+      "path": "src/components/GameMount.tsx",
+      "bytes": 3308,
+      "sha256": "66d0d2bb3c530c45401327e85e7274287ffe9d7e7038d80d0e17cb1734cfbe95"
+    },
+    {
+      "path": "src/components/GreggModeSelector.tsx",
+      "bytes": 1134,
+      "sha256": "1e40b1de5b96ffb5660c4098952412d713b83d20850618e9d1cc557cf60b224d"
+    },
+    {
+      "path": "src/components/HudBackground.tsx",
+      "bytes": 3536,
+      "sha256": "549644c1cbb960d072783cca02e78f35308fe2f720d99968abd5b171a2ff2405"
+    },
+    {
+      "path": "src/components/PlayerAuth.tsx",
+      "bytes": 8199,
+      "sha256": "970392c7c5332e66ed5fdf431c59d9478450d204997659fb238128ee1e7dd999"
+    },
+    {
+      "path": "src/components/PlayerSetupModal.tsx",
+      "bytes": 4310,
+      "sha256": "9f7ac556f45ac2e586e87b6360eab82364df3f2c4eaf2a4f94f232ab41bd7362"
+    },
+    {
+      "path": "src/components/PracticeFormatSelector.tsx",
+      "bytes": 956,
+      "sha256": "03a3f009c6f5edc4f8f8b7ae57519ac1b2aa903f189945fe67505a8037d6c671"
+    },
+    {
+      "path": "src/data/dev/gregg-crop-mappings-pending (1).json",
+      "bytes": 4752,
+      "sha256": "2360564d2c52bb1508af1048ed6a4103603b7fab6b411e267ca7d6fbbf90a188"
+    },
+    {
+      "path": "src/data/dev/gregg-crop-mappings-pending (2).json",
+      "bytes": 6990,
+      "sha256": "89902264a9760f88b20c0fe291a2d9f18a5e1cd13bdd9bd2de1018ed975690ee"
+    },
+    {
+      "path": "src/data/dev/gregg-crop-mappings-pending (3).json",
+      "bytes": 9219,
+      "sha256": "5d41f44a749d6508b9ecf38a9a6e2de08595b7afc96f8ad19fb45068adb24998"
+    },
+    {
+      "path": "src/data/dev/gregg-crop-mappings-pending (4).json",
+      "bytes": 11754,
+      "sha256": "a1831489a35bfc361626866ecc2caa3844b928571753d90cc28cb05212c459ba"
+    },
+    {
+      "path": "src/data/dev/gregg-crop-mappings-pending.json",
+      "bytes": 2241,
+      "sha256": "2fe67c7901727fca01051dca9c5ef88280b174d0396b9fa549be9e57fbc43c01"
+    },
+    {
+      "path": "src/data/dev/GreggCropEditor.tsx",
+      "bytes": 10057,
+      "sha256": "a6964dc0e637d9d2b6015e926afe9da67c77000902756a508eef476f6bb08403"
+    },
+    {
+      "path": "src/data/dev/greggCropEditorUtils.ts",
+      "bytes": 2143,
+      "sha256": "59d73e66c89052db860092d2e4fab9510c4cf189218e632937220d9844b68cff"
+    },
+    {
+      "path": "src/data/dev/GreggExercise6Pilot.tsx",
+      "bytes": 3989,
+      "sha256": "96e4df237e7afe9add67e939eed31dce7f962568418b34de56e47b4895471eb1"
+    },
+    {
+      "path": "src/data/dev/greggPilotMappings.ts",
+      "bytes": 11731,
+      "sha256": "71e959272e14f4cc2eea5a490cb6c52bb994af346db7f97575e2c45787e3d100"
+    },
+    {
+      "path": "src/data/greggCropMappings.ts",
+      "bytes": 1239,
+      "sha256": "cb9631d06267f8546db822827d5e2b499a2f2426cb5628745c0589b3c858dcb4"
+    },
+    {
+      "path": "src/data/greggPrompts.ts",
+      "bytes": 1018,
+      "sha256": "59d6bd5f0d46222a2b556b5ec29cceb3b89caf940b231798bcf0c64f80c7fa2e"
+    },
+    {
+      "path": "src/data/stenoExercises.ts",
+      "bytes": 1136,
+      "sha256": "22bf368e426ed610763edc64ce85fc76dde63ff76832ce13cc06aa816add8b1b"
+    },
+    {
+      "path": "src/index.css",
+      "bytes": 2159,
+      "sha256": "2ea5badb22f5255424bf5362a0f412d43a44ce403aa2e87bfcdf3002c2726fd5"
+    },
+    {
+      "path": "src/lib/classroomStatus.ts",
+      "bytes": 290,
+      "sha256": "a71ae2e43c3e1927c923b44d5d63ba66fe891e08ab55e0f55cdea100879d96cc"
+    },
+    {
+      "path": "src/lib/classroomTypes.ts",
+      "bytes": 362,
+      "sha256": "644b80419fc0847f97d6ba4168c2710e243118f61baed8987a1e14cdf3c2955e"
+    },
+    {
+      "path": "src/lib/endpoints.ts",
+      "bytes": 4552,
+      "sha256": "1ad5909b841353fdadb7eaf5728269a484d2487a4ec043a43587cbbbeb8a5c29"
+    },
+    {
+      "path": "src/lib/greggGameplay.ts",
+      "bytes": 727,
+      "sha256": "f46a2f5d14ebdb65e7a85c12c2d1ba6ef2c945cae4f66e0be60f9fe73b0c6cd7"
+    },
+    {
+      "path": "src/lib/mockData.ts",
+      "bytes": 2240,
+      "sha256": "2c5dc292a347dea65845bb6a36dcf2829a1312dcfc8ae8d10d33183e78522c36"
+    },
+    {
+      "path": "src/lib/playerApi.ts",
+      "bytes": 8776,
+      "sha256": "778a5c2d7ba89f7ac0388d3e1d407fe7dfba5fc62e8a7ea72847224d87c4b44a"
+    },
+    {
+      "path": "src/lib/PlayerAuthContext.tsx",
+      "bytes": 3632,
+      "sha256": "51881ba0e1ada73d4d5a025a0e67a1a78484c0a6ce1cab4a0aacabe81404e2f9"
+    },
+    {
+      "path": "src/lib/profileAssets.ts",
+      "bytes": 1697,
+      "sha256": "3e07f08203008f79b6ad27148be6b2791b65486eea006d42893ce6045d6d90b7"
+    },
+    {
+      "path": "src/main.tsx",
+      "bytes": 476,
+      "sha256": "e94d4711863c3f7dccc70b86dd0b9df5ae09b8a3303d089faf7d6216fd9e7373"
+    },
+    {
+      "path": "src/pages/Achievements.tsx",
+      "bytes": 1221,
+      "sha256": "0f247950086e8c412818e9305bf66018fcfa4eca29269d4f07729e2b3a564608"
+    },
+    {
+      "path": "src/pages/Customize.tsx",
+      "bytes": 9505,
+      "sha256": "ff3abe26fed55b73685bfb474e47e03e52799c7d1d855fa0f7cd5520e977b5b4"
+    },
+    {
+      "path": "src/pages/ForgotPassword.tsx",
+      "bytes": 10171,
+      "sha256": "ce5514d682cfb5320dd4b63eaef663591e32bf0854bb4a3ced3da3e8ffee1c15"
+    },
+    {
+      "path": "src/pages/Friends.tsx",
+      "bytes": 935,
+      "sha256": "5cd592c0ae22e536e54120c227afd0bb94a09f6dc30b3982727c38c0403aea1a"
+    },
+    {
+      "path": "src/pages/Game.tsx",
+      "bytes": 14590,
+      "sha256": "6d7b1460a61683cc1f9430b93368bc426bb1d9c8bd6eb25b4e253cc0e7884c29"
+    },
+    {
+      "path": "src/pages/History.tsx",
+      "bytes": 4220,
+      "sha256": "47fedf14ffe0476c61a2499a9fe9799a8bbb9c1593605eb5bfa39ddc1f557c78"
+    },
+    {
+      "path": "src/pages/Index.tsx",
+      "bytes": 20611,
+      "sha256": "40e728f434c013f6735fbfcd6bb4d319706677c2a6799df291abcb9a45e2a64f"
+    },
+    {
+      "path": "src/pages/Leaderboard.tsx",
+      "bytes": 2502,
+      "sha256": "8b3a9c56f3ecc859d655fcd53302bf44d56c5816383e33add5200b8f2e7c67d0"
+    },
+    {
+      "path": "src/pages/Loading.tsx",
+      "bytes": 1035,
+      "sha256": "bc09e72fe2b4ae435b64ea5634e3073e04bc98105311a49aa7337d93fffa05d7"
+    },
+    {
+      "path": "src/pages/Lobby.tsx",
+      "bytes": 32410,
+      "sha256": "2c467914eefd0ce92e071c438de445101e50bf55a7485bde353c73e8cdb333f6"
+    },
+    {
+      "path": "src/pages/Play.tsx",
+      "bytes": 4671,
+      "sha256": "db58361731b05650d99a53c55ad86e2039880a6349323afc9aa5c13a9da4ddcd"
+    },
+    {
+      "path": "src/pages/PreMatch.tsx",
+      "bytes": 5392,
+      "sha256": "1ef137b9e154705217ebea1e912a2ee1b8ab0a1130d60180ef4872612db94977"
+    },
+    {
+      "path": "src/pages/Results.tsx",
+      "bytes": 19956,
+      "sha256": "41f7b37716cdc905a0b48f05b850d312a1148e60b3bc29eceecdd097f8f0f6b4"
+    },
+    {
+      "path": "src/pages/Settings.tsx",
+      "bytes": 9237,
+      "sha256": "2cb96f3a1eb971aa361774ebddbecf3dbf6a05404f93840ce639ccb2d52679fa"
+    },
+    {
+      "path": "src/pages/StudentProgress.tsx",
+      "bytes": 6841,
+      "sha256": "40d6056873c72fd46479f08deecda2d6135d884901086d0481047755bf6022be"
+    },
+    {
+      "path": "src/pages/TeacherDashboard.tsx",
+      "bytes": 2377,
+      "sha256": "ad018a18ddc4e955c689ff01035d96a2eaf02e706a9bb5a6b7c2ec2f35349390"
+    },
+    {
+      "path": "src/pages/VerifyEmail.tsx",
+      "bytes": 7807,
+      "sha256": "d9c5f0bd459231c21713904ebc1a8827ed7d37a50e100ab1535341d83bbe4cfc"
+    },
+    {
+      "path": "src/pages/Welcome.tsx",
+      "bytes": 2995,
+      "sha256": "0fad97c9d83471333d0832092eed1258d444256db0c943441123e4db1354e81c"
+    },
+    {
+      "path": "src/pages/WordBank.tsx",
+      "bytes": 2167,
+      "sha256": "1a39eeb99a9a3140967f0a3455658b37cfc36aef9095643c9dd1dc6c0803ef66"
+    },
+    {
+      "path": "src/scenes/counter.ts",
+      "bytes": 274,
+      "sha256": "7580ce935ad5fd8f5598ee53533fbddbd5d34e5aaf6cfbb7f81f3ef1969bf4e3"
+    },
+    {
+      "path": "src/scenes/game/lanes.ts",
+      "bytes": 576,
+      "sha256": "b75316e704563f5935863aea373c16d36c922ed95e25fc5213124bed0ca39bbc"
+    },
+    {
+      "path": "src/scenes/game/PauseMenu.ts",
+      "bytes": 3759,
+      "sha256": "2c8ade3c54b0d7b9cc0248d58bdec44858534e9c179aeff16f3d8975d597abea"
+    },
+    {
+      "path": "src/scenes/game/WaterEffects.ts",
+      "bytes": 2293,
+      "sha256": "6dbbe40f2027441263d23721df7d8f0f49a2ca80b3bb5e1d9eae715662b5c12e"
+    },
+    {
+      "path": "src/scenes/game/WordTarget.ts",
+      "bytes": 9392,
+      "sha256": "28ff5cf7e6886f9ec55b65dd7e978fc4cccc15a6874e7ca3b5e5dcb45de340a3"
+    },
+    {
+      "path": "src/scenes/GameScene.ts",
+      "bytes": 31691,
+      "sha256": "9d62dc1fb77504b29a0ff9e3c41f8c882d8035182f6ae21c356ec6b9d3bdf3da"
+    },
+    {
+      "path": "src/scenes/match_hud/index.ts",
+      "bytes": 39,
+      "sha256": "cbdab1e30259dd32e983bf94b0645f5447147db4ad2318b1197721eb5a0ab167"
+    },
+    {
+      "path": "src/scenes/match_hud.ts",
+      "bytes": 38,
+      "sha256": "43eecd882898b558be2b97d98ad4403d7359216c6dc459aadb2f3649fdb34c0e"
+    },
+    {
+      "path": "src/tools/make-tile-panel.html",
+      "bytes": 1985,
+      "sha256": "8402fd26baa3a6b0c9147d177f46b874d25cb5c53e153fe27b19ec5dc2ffd17f"
+    },
+    {
+      "path": "src/words.ts",
+      "bytes": 611,
+      "sha256": "9318d25005f0ba66b6971ae14eec0c57ea0ae3d13bdec4bc710552aed1e5f0a7"
+    },
+    {
+      "path": "server/src/auth.ts",
+      "bytes": 1991,
+      "sha256": "c5413508f372ff123661e8c59fb11701a71168f5b8a49ad983b509e8ea076071"
+    },
+    {
+      "path": "server/src/classroomConfig.ts",
+      "bytes": 3554,
+      "sha256": "a66e3551c808c3b65edf84609cd460db1ef98bda75e10279962116cfbc5be91d"
+    },
+    {
+      "path": "server/src/classroomPersistence.ts",
+      "bytes": 2103,
+      "sha256": "f06e4f081a45beaad07d73bc8c43ca5c3042ee697ee26b13e3db727b78f2810c"
+    },
+    {
+      "path": "server/src/databaseTypes.ts",
+      "bytes": 792,
+      "sha256": "eb92cda0a67d3cc3293869db84d726cbb71da61249b2d8689335280a1c146d37"
+    },
+    {
+      "path": "server/src/db.ts",
+      "bytes": 11273,
+      "sha256": "cd10c774ba42b0f94194728867dfddb52c54c0c3733b8a733132d364a96ef6d6"
+    },
+    {
+      "path": "server/src/email.ts",
+      "bytes": 3444,
+      "sha256": "e0529f80ca55343c6b8fcf712f1fc3c04c2376d1598b9d3e11c6d6c6c022ceb1"
+    },
+    {
+      "path": "server/src/emailVerification.ts",
+      "bytes": 10047,
+      "sha256": "da5f60bd2a4594a0e7c2995396bffd33d7866066ffbbf907224e7328bbd66994"
+    },
+    {
+      "path": "server/src/index.ts",
+      "bytes": 3836,
+      "sha256": "3b4ebd8561cefb396e05f0a3b21876d144b9a75700cf54bd5ae87171bd475cee"
+    },
+    {
+      "path": "server/src/lan.ts",
+      "bytes": 32547,
+      "sha256": "6ab39500f77562a2f18c792ca1ac6614fb11c0eefefde37fbbd8fd4c5976aa2c"
+    },
+    {
+      "path": "server/src/middleware.ts",
+      "bytes": 1933,
+      "sha256": "80f5051aace0338abd7aaee22e3c565d8bbe42a9eebc8a7689cb9325f6738c89"
+    },
+    {
+      "path": "server/src/passwordReset.ts",
+      "bytes": 7475,
+      "sha256": "091d454d4920c2717f53fa288e64b393b87ed96c6e4eda034fcd121b505c92a3"
+    },
+    {
+      "path": "server/src/postgresDatabase.ts",
+      "bytes": 6552,
+      "sha256": "6f1443f3cb97994b609bede66f09a9d3d756f3effde2d833195e46602664b088"
+    },
+    {
+      "path": "server/src/routes/admin.ts",
+      "bytes": 9992,
+      "sha256": "3e4fe971e7f1490e7518d66f01ca85cde3c77d04157f35a4989cd1e054dc2966"
+    },
+    {
+      "path": "server/src/routes/auth.ts",
+      "bytes": 6972,
+      "sha256": "d346bf0556e2e39c8bce5e3fbb4d8beddc6c46a92493931e8b56d303a11ccaf1"
+    },
+    {
+      "path": "server/src/routes/emailVerification.ts",
+      "bytes": 1399,
+      "sha256": "0c1b0dd2cf485c2e76ebbe6b3fb1b1a4b93288e3520be488be230e9a1b0cb195"
+    },
+    {
+      "path": "server/src/routes/feedback.ts",
+      "bytes": 1155,
+      "sha256": "a7a9b8c5dc3983723c68fab1abe7f9b8ee74242bb38529e25cc24a7ac36b46fa"
+    },
+    {
+      "path": "server/src/routes/leaderboard.ts",
+      "bytes": 3570,
+      "sha256": "23fb5dddf991990ec2fdc5ebf7ccb3c7fc6bbe6393f084b63caf837d1fd2258e"
+    },
+    {
+      "path": "server/src/routes/matches.ts",
+      "bytes": 16077,
+      "sha256": "0924c83985dfa0ac584cbdfdd58eec5b64a7e65276b5702571e2f6f4f4803375"
+    },
+    {
+      "path": "server/src/routes/passwordReset.ts",
+      "bytes": 2272,
+      "sha256": "742d8c63090162f4503f1348c156c8dd4013c52177969fbff646c3019db04a93"
+    },
+    {
+      "path": "server/src/sentenceBank.ts",
+      "bytes": 6619,
+      "sha256": "43ce969eba3868538c3684bc40539e27ea634e4609aa0df8a65fa5b4cd47c65a"
+    },
+    {
+      "path": "server/src/sessionEvents.ts",
+      "bytes": 175,
+      "sha256": "378355aefc51d646bc560c699c986e4f9f892b3e5e5afe73985a9c36953bf995"
+    },
+    {
+      "path": "server/src/wordBank.ts",
+      "bytes": 7372,
+      "sha256": "94fe6a5352f67a8a01b14bff7496b4f07313061a03a54bd481f425503cd55643"
+    },
+    {
+      "path": "server/tests/authorization.test.ts",
+      "bytes": 2391,
+      "sha256": "e0d31b3a1c1ada20e208aa919adfdcacd45252b484b5b960f3e9308b42b87150"
+    },
+    {
+      "path": "server/tests/authorizationChecks.ts",
+      "bytes": 8344,
+      "sha256": "4440d4a98da3671cf4206b5ac8913791c511827615e6dfb3c518da25d6e1971e"
+    },
+    {
+      "path": "server/tests/classroomCapacity.test.ts",
+      "bytes": 19875,
+      "sha256": "a4649003550ac9955fb12e30cad848653de8a3fd743a25f0bed8f382652ab4e6"
+    },
+    {
+      "path": "server/tests/classroomConnectivity.test.ts",
+      "bytes": 12789,
+      "sha256": "ee0074ab398115ed972ff7c16934feb82a4e69004ef7b5e5784b718d40b65486"
+    },
+    {
+      "path": "server/tests/classroomFormats.test.ts",
+      "bytes": 11153,
+      "sha256": "8debb37bafb74bd002bbd42bbe9ffe0475d63ca7b50d2cbe585c9d571778a7f3"
+    },
+    {
+      "path": "server/tests/classroomReliability.test.ts",
+      "bytes": 2706,
+      "sha256": "033498d1252ccf400b45d3c51d78d1c979bed8418d351d7ce49c54d958e3cad5"
+    },
+    {
+      "path": "server/tests/classroomReliabilityChecks.ts",
+      "bytes": 9407,
+      "sha256": "42989f198ec2ef2bc0f913ab5d2b24bbec430e43bdb23d9b656eb7671f802bda"
+    },
+    {
+      "path": "server/tests/emailVerification.test.ts",
+      "bytes": 18960,
+      "sha256": "810d63bc024ec0e6e907ae916daa626e2f41bc541f9112f54270257b329a48cb"
+    },
+    {
+      "path": "server/tests/endpoints.test.ts",
+      "bytes": 4695,
+      "sha256": "6cf445a0cde3521ac18eee0412ca89a5b3ac6f4faa32980a50424de32a9459e5"
+    },
+    {
+      "path": "server/tests/gameplayFormats.test.ts",
+      "bytes": 7303,
+      "sha256": "cfeaf04893f0c851c520dd70b1c0623d5f37ef41f096ce2d41e24d0593b63003"
+    },
+    {
+      "path": "server/tests/lanResults.test.ts",
+      "bytes": 5920,
+      "sha256": "5b978769e0179e555570747f10cf88269ce7cd4dde51bbc00eeec4cd844646f4"
+    },
+    {
+      "path": "server/tests/passwordReset.test.ts",
+      "bytes": 16486,
+      "sha256": "028adb38356d8f50f194087bc8b110cb6038af898f01aa9dda26ebf0e99d571c"
+    },
+    {
+      "path": "server/tests/postgres.test.ts",
+      "bytes": 17887,
+      "sha256": "dd56315ecee19a16320dc1ca65d274034d62f4b61dc8e5d0483de526687884ce"
+    },
+    {
+      "path": "server/tests/registrationRoleChecks.ts",
+      "bytes": 7225,
+      "sha256": "4a48898009a210328e41f8016d7bd8f65392df898d5e661eab955679914b0aea"
+    },
+    {
+      "path": "server/tests/registrationRoles.test.ts",
+      "bytes": 2370,
+      "sha256": "81218c3713bd0bbe3c699487dd1872ee529f2d73f52107ee0afd4100f86b56fc"
+    },
+    {
+      "path": "server/tests/resultIntegrityChecks.ts",
+      "bytes": 4776,
+      "sha256": "1fa7b8423d99a7ebdcd216dd62244070a17472111efd13132806a08637ec1fde"
+    },
+    {
+      "path": "server/tests/sentencePractice.test.ts",
+      "bytes": 5084,
+      "sha256": "0053b1779a93a0b0d13dca5b3d96aa4c072a9461597872bef92368ae195eb48e"
+    },
+    {
+      "path": "server/tests/studentProgressUi.test.ts",
+      "bytes": 7056,
+      "sha256": "110705112472dc1f1011bb750e33d71c7b322b52f9d7c252a344e3a3da87bd97"
+    },
+    {
+      "path": "server/tests/teacherProgress.test.ts",
+      "bytes": 1450,
+      "sha256": "3281f7b435e944a9f425e79479d93ecf5589d05045df2ab3d7057dfb60765a09"
+    },
+    {
+      "path": "server/tests/teacherProgressChecks.ts",
+      "bytes": 5879,
+      "sha256": "fa63fae38adcfd5f150b548d87ad41c7402d40edaad020cf4960308c4d6378c4"
+    },
+    {
+      "path": "server/tests/userDeletionChecks.ts",
+      "bytes": 6104,
+      "sha256": "f29afe3df17fc3c4117422a175125dd2152cc81babe86c52b8ec44497ee292ab"
+    },
+    {
+      "path": "admin/src/api.ts",
+      "bytes": 3061,
+      "sha256": "07c1abeb65c8f336db11c601a6f75b6e4b2e091502436d1b8180d8e6f7e3b134"
+    },
+    {
+      "path": "admin/src/App.tsx",
+      "bytes": 5528,
+      "sha256": "df9c99d9b866557ea0b8e585d50ccef5fc6f26b6d62392c3672f4c0da2d140b0"
+    },
+    {
+      "path": "admin/src/index.css",
+      "bytes": 449,
+      "sha256": "87e3d196a41bdd6d6ee0a341031d49c487b2b614da53db87ccd365f5e3644d62"
+    },
+    {
+      "path": "admin/src/main.tsx",
+      "bytes": 246,
+      "sha256": "ea80670266a7ca3cb25c6a7e78d5243884198462e46b882a3bb80e1f0ef3664d"
+    },
+    {
+      "path": "admin/src/pages/Dashboard.tsx",
+      "bytes": 4436,
+      "sha256": "72fef8f7d09994229824b17c97e7eeca7a19621bc5c8c9ef45a598430bb5a223"
+    },
+    {
+      "path": "admin/src/pages/Leaderboard.tsx",
+      "bytes": 5010,
+      "sha256": "304b062f66ef93891093ae862164072d738d4f9ad7e556a689834f0b479ea904"
+    },
+    {
+      "path": "admin/src/pages/Login.tsx",
+      "bytes": 3614,
+      "sha256": "d33cc5c7c5a156061358dec7816b42597e31fa681a4085f9d06407e1dbd82acb"
+    },
+    {
+      "path": "admin/src/pages/Logs.tsx",
+      "bytes": 3932,
+      "sha256": "80d1be0cba83614616b0ae3098093ff4a25a9f99dc6bea720f2abb6179040a3d"
+    },
+    {
+      "path": "admin/src/pages/Users.tsx",
+      "bytes": 12171,
+      "sha256": "ebdf15bc1ee529c7f8c09c128f8ca8d77132b8c5c43e4252ebe9c31a47faecd0"
+    },
+    {
+      "path": "admin/src/vite-env.d.ts",
+      "bytes": 37,
+      "sha256": "b440b802c2cfeac6a24eda510bd63c1f23c6ab5c52bcfe3a32a918dbad6b46c8"
+    },
+    {
+      "path": "tests/frontend-email-verification.cjs",
+      "bytes": 10963,
+      "sha256": "d0ed023d6138299f1651af49a68227a194df2a62605b2fa2d6fd5e5fd82262e8"
+    },
+    {
+      "path": "supabase/migrations/20261018000100_initial_type_tiles.sql",
+      "bytes": 7782,
+      "sha256": "2ba80f1ca9c16a2d250fcff51491fafd2068bb10ab3bb70d4a048d4b664a7b95"
+    },
+    {
+      "path": "supabase/migrations/20261108000100_classroom_ownership.sql",
+      "bytes": 430,
+      "sha256": "190d93f301cffbd5be630d74f634b54c60b1c93024989f4fd75a7a5d23084173"
+    }
+  ]
+}
