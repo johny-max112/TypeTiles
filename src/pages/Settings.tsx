@@ -4,6 +4,8 @@ import { useNavigate } from "react-router-dom";
 import { usePlayerAuth } from "../lib/PlayerAuthContext";
 import { submitFeedback } from "../lib/playerApi";
 
+import { developmentTeam } from "../data/developmentTeam";
+
 const settingsItems = [
   ["Account Settings", "/app/settings/account"],
   ["Notifications", "/app/settings/notifications"],
@@ -103,7 +105,7 @@ export function HelpSupport() {
 }
 
 export function AboutTypeTiles() {
-  return <SettingsFrame title="About Type Tiles"><div className="space-y-5 rounded-[8px] border border-[#2967a1] bg-[#0a1325]/70 p-5 text-slate-300"><div><h2 className="text-2xl font-semibold text-white">Type Tiles</h2><div className="mt-1 text-[#6a9eff]">Version 1.0.0</div></div><p>Type Tiles is a gamified typing application using falling-tile mechanics for skill development.</p><p>It supports Solo Practice and local LAN classroom activities, with support for Gregg Shorthand exercises using verified shorthand content.</p><div><h3 className="text-sm font-medium tracking-[0.2em] text-white">CAPSTONE DEVELOPMENT TEAM</h3><p className="mt-3 whitespace-pre-line">John Tadeo Liscano{`\n`}Full Stack Developer{`\n\n`}Helen S. Delig{`\n`}UI/UX Designer{`\n\n`}Honey Grace E. Saulong{`\n`}Project Leader & Lead Documentation{`\n\n`}Kyla Pascualado{`\n`}Documentation Analyst{`\n\n`}Jacquelyn De Vera{`\n`}Documentation Specialist</p></div><p>Pateros Technological College{`\n`}BS Information Technology{`\n`}2026</p></div></SettingsFrame>;
+  return <SettingsFrame title="About Type Tiles"><div className="space-y-5 rounded-[8px] border border-[#2967a1] bg-[#0a1325]/70 p-5 text-slate-300"><div><h2 className="text-2xl font-semibold text-white">Type Tiles</h2><div className="mt-1 text-[#6a9eff]">Version 1.0.0</div></div><p>Type Tiles is a gamified typing application using falling-tile mechanics for skill development.</p><p>Developed by Wanderpets, it supports Solo Practice, online and local/LAN classroom activities, and Gregg stenography exercises.</p><div><h3 className="text-sm font-medium tracking-[0.2em] text-white">CAPSTONE DEVELOPMENT TEAM</h3><div className="mt-3 space-y-5">{developmentTeam.map((member) => <div key={member.id}><h4 className="font-semibold text-white">{member.name}</h4><p className="text-[#91dcff]">{member.role}</p><p className="mt-1 leading-7">{member.description}</p></div>)}</div><a href="/about/" className="mt-5 inline-block text-[#91dcff] underline">Meet Wanderpets on our public team page</a></div><p>Pateros Technological College{`\n`}BS Information Technology{`\n`}2026</p></div></SettingsFrame>;
 }
 
 export function FeedbackPage() {

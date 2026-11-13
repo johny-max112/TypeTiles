@@ -46,6 +46,7 @@ export default function Welcome() {
             </div>
           </div>
         </div>
+        <p className="mt-6 text-center text-sm text-slate-300">A capstone project by Wanderpets. <a href="/about/" className="text-[#91dcff] underline underline-offset-4 hover:text-white">Meet the development team</a></p>
       </div>
     </div>
   );
