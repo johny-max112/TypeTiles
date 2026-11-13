@@ -1,0 +1,7 @@
+User-agent: *
+Allow: /
+Disallow: /app/
+Disallow: /dev/
+Disallow: /admin/
+
+Sitemap: https://playtypetiles.com/sitemap.xml

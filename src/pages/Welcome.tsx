@@ -6,10 +6,10 @@ import { HudBackground } from "../components/HudBackground";
 const onboardingSteps = [
   {
     title: "Welcome to Type Tiles!",
-    body: "Sharpen your typing skills through fun and fast-paced gameplay.",
+    body: "Play a free online typing game with falling tiles. Practice your typing speed and accuracy through fun, fast-paced gameplay.",
   },
   {
-    title: "Practice your typing skills in Solo Mode or join a local LAN classroom match hosted by your teacher.",
+    title: "Practice your typing skills in Solo Mode or join a classroom match hosted by your teacher.",
     body: "Improve your speed and accuracy while competing alongside other students.",
   },
   {
@@ -31,7 +31,8 @@ export default function Welcome() {
       <div className="relative z-10 w-full max-w-[975px]">
         <div className="mb-8 flex flex-col items-center text-center">
           <Dices className="h-14 w-14 rotate-[-13deg] text-[#6a9eff]" />
-          <div className="mt-1 bg-gradient-to-r from-[#6a9eff] to-[#1183bb] bg-clip-text font-['Orbitron'] text-4xl font-extrabold text-transparent sm:text-6xl">TypeTiles</div>
+          <h1 className="mt-1 bg-gradient-to-r from-[#6a9eff] to-[#1183bb] bg-clip-text font-['Orbitron'] text-4xl font-extrabold text-transparent sm:text-6xl">TypeTiles</h1>
+          <p className="mt-3 text-sm text-slate-300 sm:text-base">Free typing game · Solo practice · Classroom matches · Gregg stenography</p>
         </div>
         <div className="min-h-[300px] rounded-[27px] bg-[#0b1231] px-6 py-12 shadow-[0_24px_70px_rgba(3,6,31,.45)] sm:min-h-[399px] sm:px-12 sm:py-20">
           <div className="flex min-h-[210px] flex-col justify-between">
