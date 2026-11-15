@@ -1,3 +1,4 @@
+import { sendClassroomMessage } from "../lib/classroomSocket";
 import { GameMount } from "../components/GameMount";
 import type { MatchConfig } from "../lib/mockData";
 import { useNavigate } from "react-router-dom";
@@ -97,12 +98,9 @@ export default function Game({
       socket.onopen = () => {
         if (disposed || socketRef.current !== socket) return;
 
-        socket.send(
-          JSON.stringify({
-            type: "join_room",
-            roomCode,
-          })
-        );
+        void sendClassroomMessage(socket, { type: "join_room", roomCode }).catch(error => {
+          if (!disposed && socketRef.current === socket) setClassroomError(error instanceof Error ? error.message : "Classroom authorization failed.");
+        });
       };
 
       socket.onmessage = (event) => {

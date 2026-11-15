@@ -26,6 +26,11 @@ export async function cookieAuthChecks(db: ApplicationDatabase, base: string, ws
   const decoded = jwt.decode(token) as { iat: number; exp: number };
   assert.equal(decoded.exp - decoded.iat, 900); assert(verifyToken(token));
   assert.equal((await me(cookie)).status, 200);
+  assert.equal((await post("/classroom-ticket", {}, undefined)).status, 401);
+  assert.equal((await post("/classroom-ticket", {}, cookie, "https://evil.example")).status, 403);
+  const oldTicketResponse = await post("/classroom-ticket", {}, cookie);
+  assert.equal(oldTicketResponse.headers.get("cache-control"), "no-store");
+  const oldTicket = (await oldTicketResponse.json()).ticket;
   assert.equal((await fetch(base + "/me", { headers: { Authorization: `Bearer ${token}` } })).status, 401);
   const secondLogin = await post("/login", credentials); const second = secondLogin.headers.get("set-cookie")!.split(";")[0];
 
@@ -49,7 +54,49 @@ export async function cookieAuthChecks(db: ApplicationDatabase, base: string, ws
   assert.equal((await closed)[0], 4001);
   assert.equal((await db.get("SELECT session_version FROM users WHERE id=?", userId)).session_version, 1);
   assert.equal((await me(cookie)).status, 401); assert.equal((await me(second)).status, 401);
-  assert.equal((await post("/login", credentials)).status, 200);
+  const fresh = await post("/login", credentials); assert.equal(fresh.status, 200);
+  const freshCookie = fresh.headers.get("set-cookie")!.split(";")[0];
+
+  const oldSocket = new WebSocket(wsUrl, socketOptions()); await once(oldSocket, "open");
+  let reply = once(oldSocket, "message"); oldSocket.send(JSON.stringify({ type: "create_room", ticket: oldTicket }));
+  assert.equal(JSON.parse(String((await reply)[0])).type, "error"); oldSocket.close(); await once(oldSocket, "close");
+  const ticketResponse = await post("/classroom-ticket", {}, freshCookie);
+  const ticketBody = await ticketResponse.json(); assert.equal(ticketBody.token, undefined); assert.equal(ticketBody.expiresIn, 30);
+  assert.match(ticketBody.ticket, /^[A-Za-z0-9_-]{43}$/);
+  const ticketSocket = new WebSocket(wsUrl, socketOptions()); await once(ticketSocket, "open");
+  reply = once(ticketSocket, "message"); ticketSocket.send(JSON.stringify({ type: "create_room", ticket: ticketBody.ticket, wordSet: "General" }));
+  const createdRoom = JSON.parse(String((await reply)[0])); assert.equal(createdRoom.type, "room_created");
+  // Reproduce Lobby -> Game replacement during an active match without a WSS cookie.
+  const studentId = (await db.run("INSERT INTO users(username,email,password_hash,display_name,role,email_verified) VALUES(?,?,?,?,?,1)",
+    "ticket-student", "ticket-student@example.test", await hashPassword("cookie-password"), "Ticket Student", "student")).lastID!;
+  const studentLogin = await post("/login", { username: "ticket-student", password: "cookie-password" });
+  const studentCookie = studentLogin.headers.get("set-cookie")!.split(";")[0];
+  const issueStudentTicket = async () => (await (await post("/classroom-ticket", {}, studentCookie)).json()).ticket;
+  const lobbyTicket = await issueStudentTicket();
+  const studentLobby = new WebSocket(wsUrl, socketOptions()); await once(studentLobby, "open");
+  reply = once(studentLobby, "message"); studentLobby.send(JSON.stringify({ type: "join_room", roomCode: createdRoom.roomCode, ticket: lobbyTicket }));
+  assert.equal(JSON.parse(String((await reply)[0])).type, "room_joined");
+  const ready = new Promise<void>(resolve => {
+    const listener = (raw: unknown) => {
+      const message = JSON.parse(String(raw));
+      if (message.type === "room_state" && message.players.some((player: any) => player.userId === studentId && player.ready)) {
+        ticketSocket.off("message", listener); resolve();
+      }
+    }; ticketSocket.on("message", listener);
+  });
+  studentLobby.send(JSON.stringify({ type: "ready" })); await ready;
+  reply = once(ticketSocket, "message"); ticketSocket.send(JSON.stringify({ type: "start_game" }));
+  assert.equal(JSON.parse(String((await reply)[0])).type, "room_started");
+  studentLobby.close(); await once(studentLobby, "close");
+  const gameTicket = await issueStudentTicket(); assert.notEqual(gameTicket, lobbyTicket);
+  const studentGame = new WebSocket(wsUrl, socketOptions()); await once(studentGame, "open");
+  reply = once(studentGame, "message"); studentGame.send(JSON.stringify({ type: "join_room", roomCode: createdRoom.roomCode, ticket: gameTicket }));
+  assert.equal(JSON.parse(String((await reply)[0])).type, "room_joined");
+  assert.equal((await db.get("SELECT COUNT(*) AS count FROM match_participants WHERE user_id=?", studentId)).count, 1);
+  studentGame.close(); await once(studentGame, "close"); ticketSocket.close(); await once(ticketSocket, "close");
+  const replay = new WebSocket(wsUrl, socketOptions()); await once(replay, "open");
+  reply = once(replay, "message"); replay.send(JSON.stringify({ type: "create_room", ticket: ticketBody.ticket }));
+  assert.equal(JSON.parse(String((await reply)[0])).type, "error"); replay.close(); await once(replay, "close");
 
   const race = await Promise.all(Array.from({ length: 6 }, () => post("/login", { username: "nonexistent-cookie-user", password: "wrong" })));
   assert.equal(race.filter(response => response.status === 401).length, 5);

@@ -291,3 +291,7 @@ export async function authenticatedRequest<T>(path: string, options: RequestInit
 export function logoutPlayer(): Promise<{ message: string }> {
   return request("/auth/logout", { method: "POST" });
 }
+
+export function requestClassroomTicket(): Promise<{ ticket: string; expiresIn: number }> {
+  return request("/auth/classroom-ticket", { method: "POST" });
+}

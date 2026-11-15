@@ -28,6 +28,7 @@ async function loadComponents(apiUrl?: string) {
     "lucide-react": `export const ArrowRight=()=>null, Check=()=>null, Copy=()=>null, Users=()=>null, Wifi=()=>null;`,
     PlayerAuthContext: `export const usePlayerAuth=()=>({user:{id:2,username:'student',displayName:'Student',role:globalThis.__endpointHarness.role||'student'}});`,
     GameMount: `export function GameMount(){return null}`,
+    classroomSocket: `export function sendClassroomMessage(socket,message){socket.send(JSON.stringify(message));return Promise.resolve();}`,
     ClassroomLeaderboard: `export function ClassroomLeaderboard(){return null}`,
     ClassroomFormatSelect: `export function ClassroomFormatSelect(){return null}`,
     profileAssets: `export const PROFILE_BACKGROUNDS={blues:{label:'Blues'}};export const getProfileBackground=()=>({source:''});`,

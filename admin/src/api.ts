@@ -1,6 +1,7 @@
 import axios, { AxiosInstance } from "axios";
 
-const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3001/api";
+// Vite proxies /api to VITE_API_URL during local development (cookies stay same-origin).
+const API_URL = import.meta.env.DEV ? "/api" : import.meta.env.VITE_API_URL || "http://localhost:3001/api";
 
 class APIClient {
   private client: AxiosInstance;

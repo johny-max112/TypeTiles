@@ -1,3 +1,4 @@
+import { sendClassroomMessage } from "../lib/classroomSocket";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { FormEvent } from "react";
 import { ArrowRight, Check, Copy, Users, Wifi } from "lucide-react";
@@ -114,11 +115,9 @@ export default function Lobby() {
 
       if (pendingMessageRef.current) {
 
-        socket.send(
-          JSON.stringify(
-            pendingMessageRef.current
-          )
-        );
+        void sendClassroomMessage(socket, pendingMessageRef.current).catch(error => {
+          if (socketRef.current === socket) setError(error instanceof Error ? error.message : "Classroom authorization failed.");
+        });
 
         pendingMessageRef.current = null;
       }
@@ -386,11 +385,10 @@ export default function Lobby() {
       return;
     }
 
-    socketRef.current.send(
-      JSON.stringify(
-        message
-      )
-    );
+    const socket = socketRef.current;
+    void sendClassroomMessage(socket, message).catch(error => {
+      if (socketRef.current === socket) setError(error instanceof Error ? error.message : "Classroom authorization failed.");
+    });
   };
 
   const createRoom = () => {

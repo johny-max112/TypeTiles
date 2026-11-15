@@ -5,9 +5,10 @@ import { authMiddleware } from "../middleware.js";
 import { createPasswordResetRouter } from "./passwordReset.js";
 import { EmailVerificationService, RegistrationError } from "../emailVerification.js";
 import { createEmailVerificationRouter } from "./emailVerification.js";
-import { clearSessionCookie, requireBrowserMutation, setSessionCookie } from "../cookieSecurity.js";
+import { clearSessionCookie, readSessionCookie, requireBrowserMutation, setSessionCookie } from "../cookieSecurity.js";
 import { LoginLimiter, rejectThrottled } from "../loginLimiter.js";
 import { sessionEvents } from "../sessionEvents.js";
+import { classroomTickets } from "../classroomTickets.js";
 
 export function createAuthRouter(verification = new EmailVerificationService(), limiter = new LoginLimiter()) {
 const router = Router();
@@ -114,6 +115,13 @@ router.post("/login", async (req: Request<{}, {}, LoginBody>, res: Response) => 
     console.error("Login error:", error);
     res.status(500).json({ error: "Internal server error" });
   }
+});
+
+// One-use socket credential; the JWT stays in its HttpOnly cookie.
+router.post("/classroom-ticket", authMiddleware, (req: Request, res: Response) => {
+  const ticket = classroomTickets.issue(readSessionCookie(req)!, req.get("Origin")!, req.user!.userId);
+  if (!ticket) return res.status(429).set("Retry-After", "30").json({ error: "Classroom connections are busy. Please retry shortly." });
+  res.json({ ticket, expiresIn: 30 });
 });
 
 // Logout is intentionally global: revoke every previously issued session for this user.

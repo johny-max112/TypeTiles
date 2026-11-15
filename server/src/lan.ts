@@ -2,6 +2,7 @@ import { allowedOrigin, readSessionCookie } from "./cookieSecurity.js";
 import { randomBytes } from "crypto";
 import { IncomingMessage } from "http";
 import type { Duplex } from "stream";
+import { classroomTickets } from "./classroomTickets.js";
 import { WebSocket, WebSocketServer } from "ws";
 import { getDatabase } from "./db.js";
 import { normalizeRole, verifyToken, type AppRole } from "./auth.js";
@@ -16,6 +17,7 @@ const COUNTDOWN_DELAY_MS = 3000;
 type ClientMessage = {
   type: "create_room" | "join_room" | "leave_room" | "cancel_room" | "update_match_config" | "ready" | "start_game" | "score_update";
   roomCode?: string;
+  ticket?: string;
   playerName?: string;
   score?: number;
   wpm?: number;
@@ -440,13 +442,17 @@ export function attachLanServer(server: import("http").Server,
           return;
         }
         if (socket.readyState !== WebSocket.OPEN) return;
-        if (message.type === "create_room" || message.type === "join_room") player.pendingToken = handshakeToken;
+        let connectionToken = player.token || handshakeToken;
+        if (message.type === "create_room" || message.type === "join_room") {
+          if (!player.token && message.ticket !== undefined) connectionToken = classroomTickets.consume(message.ticket, request.headers.origin);
+          player.pendingToken = connectionToken;
+        }
         if (message.type === "create_room") {
           if (player.isHost || [...rooms.values()].some((room) => room.players.has(player.id))) {
             send(socket, { type: "error", message: "You are already in a room" });
             return;
           }
-          const identity = await authenticatePlayer(handshakeToken);
+          const identity = await authenticatePlayer(connectionToken);
           if (socket.readyState !== WebSocket.OPEN) return;
           if (!identity) {
             send(socket, { type: "error", message: "Authentication is required to create a room." });
@@ -467,7 +473,7 @@ export function attachLanServer(server: import("http").Server,
           });
 
           player.name = identity.username;
-          player.token = handshakeToken;
+          player.token = connectionToken;
           player.displayName = identity.displayName;
           player.isHost = true;
           player.userId = identity.userId;
@@ -510,7 +516,7 @@ export function attachLanServer(server: import("http").Server,
             send(socket, { type: "error", message: "Room not found. Check the room code." });
             return;
           }
-          const identity = await authenticatePlayer(handshakeToken);
+          const identity = await authenticatePlayer(connectionToken);
           if (socket.readyState !== WebSocket.OPEN) return;
           if (!identity) {
             send(socket, { type: "error", message: "Authentication is required to join a room." });
@@ -563,7 +569,7 @@ export function attachLanServer(server: import("http").Server,
           }
 
           player.name = identity.username;
-          player.token = handshakeToken;
+          player.token = connectionToken;
           player.displayName = identity.displayName;
           player.userId = identity.userId;
           player.role = identity.role;
