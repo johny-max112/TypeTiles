@@ -1,3 +1,5 @@
+import { cookieAuthChecks } from "./cookieAuthChecks.js";
+import { socketOptions } from "./cookieFixtures.js";
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
@@ -128,9 +130,9 @@ test("PostgreSQL engine: registration, recovery, Solo/history, admin and LAN per
   const base = `http://127.0.0.1:${address.port}/api`;
   const request = async (path: string, body?: object, token?: string) => {
     const response = await fetch(base + path, { method: body ? "POST" : "GET",
-      headers: { "content-type": "application/json", ...(token ? { authorization: `Bearer ${token}` } : {}) },
+      headers: { "Content-Type": "application/json", Origin: "http://localhost:5173", "X-TypeTiles-Request": "1", ...(token ? { cookie: `typetiles_session=${token}` } : {}) },
       ...(body ? { body: JSON.stringify(body) } : {}) });
-    return { status: response.status, body: await response.json() };
+    return { status: response.status, body: await response.json(), sessionToken: response.headers.get("set-cookie")?.match(/(?:^|,\s*)typetiles_session=([^;]+)/)?.[1] };
   };
   let token = "";
   let studentId = 0;
@@ -142,7 +144,7 @@ test("PostgreSQL engine: registration, recovery, Solo/history, admin and LAN per
       assert.equal((await request("/auth/verify-email", { email: mail[0].to, code: mail[0].code })).status, 200);
       assert.equal((await request("/auth/verify-email", { email: mail[0].to, code: mail[0].code })).status, 400);
       const login = await request("/auth/login", { username: "pg-student", password: "old-password" });
-      assert.equal(login.status, 200); token = login.body.token; studentId = login.body.user.id;
+      assert.equal(login.status, 200); token = login.sessionToken; studentId = login.body.user.id;
       const user = await db.get("SELECT * FROM users WHERE id = ?", studentId);
       assert(user.email_verified_at > 1_000_000_000_000);
       await assert.rejects(() => databaseTransaction(async (transaction) => {
@@ -179,7 +181,7 @@ test("PostgreSQL engine: registration, recovery, Solo/history, admin and LAN per
       assert.equal((await request("/auth/me", undefined, token)).status, 401);
       assert.equal((await request("/auth/login", { username: "pg-student", password: "old-password" })).status, 401);
       const login = await request("/auth/login", { username: "pg-student", password: "new-password" });
-      assert.equal(login.status, 200); token = login.body.token;
+      assert.equal(login.status, 200); token = login.sessionToken;
     });
     await t.test("real WebSocket room saves all participants and teacher reports through PostgreSQL", async () => {
       const teacherId = (await db.run("INSERT INTO users(username,email,password_hash,display_name,role,email_verified) VALUES(?,?,?,?,?,1)", "pg-teacher", "teacher@example.test", "test-only", "Teacher", "teacher")).lastID!;
@@ -196,7 +198,7 @@ test("PostgreSQL engine: registration, recovery, Solo/history, admin and LAN per
         throw new Error(`Missing ${type} on socket ${index}`);
       };
       for (let index = 0; index < 3; index++) {
-        const socket = new WebSocket(`ws://127.0.0.1:${address.port}/ws`); inboxes.push([]);
+        const socket = new WebSocket(`ws://127.0.0.1:${address.port}/ws`, socketOptions([teacherToken, token, secondToken][index])); inboxes.push([]);
         socket.on("message", raw => inboxes[index].push(JSON.parse(raw.toString())));
         sockets.push(socket); await once(socket, "open");
       }
@@ -219,6 +221,9 @@ test("PostgreSQL engine: registration, recovery, Solo/history, admin and LAN per
       assert.equal((await db.get("SELECT games_played FROM user_stats WHERE user_id = ?", studentId)).games_played, 1);
       assert.equal((await request(`/teacher/matches/${session.id}`, undefined, token)).status, 403);
       await resultIntegrityChecks(db, base, session.id);
+    });
+    await t.test("PostgreSQL cookie login, CSRF, logout, throttling and WebSocket checks", async () => {
+      await cookieAuthChecks(db, base + "/auth", `ws://127.0.0.1:${address.port}/ws`);
     });
     await t.test("PostgreSQL REST/WebSocket security checks", async () => {
       const address = server.address(); assert(address && typeof address !== "string");

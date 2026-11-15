@@ -1,3 +1,4 @@
+import { socketOptions } from "./cookieFixtures.js";
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { mkdtemp, rm } from "node:fs/promises";
@@ -26,8 +27,8 @@ class Peer {
       this.counts.set(message.type, (this.counts.get(message.type) || 0) + 1);
     });
   }
-  static async open(url: string) {
-    const peer = new Peer(new WebSocket(url));
+  static async open(url: string, token?: string) {
+    const peer = new Peer(new WebSocket(url, socketOptions(token)));
     await once(peer.socket, "open");
     return peer;
   }
@@ -93,9 +94,9 @@ test("50 concurrent classroom students plus teacher: capacity, reconnects, ranks
     const address = server.address(); assert(address && typeof address !== "string");
     const base = `http://127.0.0.1:${address.port}/api`;
     const url = `ws://127.0.0.1:${address.port}/ws`;
-    const open = async () => { const peer = await Peer.open(url); peers.push(peer); return peer; };
-    host = await open();
-    const students = await Promise.all(Array.from({ length: 51 }, () => open()));
+    const open = async (index?: number) => { const peer = await Peer.open(url, index === undefined ? undefined : identities[index].token); peers.push(peer); return peer; };
+    host = await open(0);
+    const students = await Promise.all(Array.from({ length: 51 }, (_, i) => open(i + 1)));
     host.send({ type: "create_room", token: identities[0].token, wordSet: "General", difficulty: "Easy", roundTime: 90 });
     roomCode = (await host.wait("room_created")).roomCode;
 
@@ -141,10 +142,10 @@ test("50 concurrent classroom students plus teacher: capacity, reconnects, ranks
       outsider.messages.length = 0;
       outsider.send({ type: "join_room", roomCode, token: identities[rejected].token });
       await outsider.wait("error", message => message.code === "ROOM_FULL");
-      const replacement = await open(); active.set(index, replacement);
+      const replacement = await open(index); active.set(index, replacement);
       replacement.send({ type: "join_room", roomCode, token: identities[index].token }); await replacement.wait("room_joined");
       await host.wait("room_state", message => message.studentCount === 50 && message.players.some((p: any) => p.userId === identities[index].id && p.connected));
-      const competing = await Promise.all([open(), open()]);
+      const competing = await Promise.all([open(index), open(index)]);
       for (const candidate of competing) candidate.send({ type: "join_room", roomCode, token: identities[index].token });
       for (let attempt = 0; attempt < 1000; attempt++) {
         const latest = competing.find(candidate => candidate.socket.readyState === WebSocket.OPEN && candidate.messages.some(m => m.type === "room_joined"));
@@ -153,7 +154,7 @@ test("50 concurrent classroom students plus teacher: capacity, reconnects, ranks
       }
       assert(competing.includes(active.get(index)!));
       for (const account of [52, 53]) {
-        const forbidden = await open(); forbidden.send({ type: "join_room", roomCode, token: identities[account].token });
+        const forbidden = await open(account); forbidden.send({ type: "join_room", roomCode, token: identities[account].token });
         await forbidden.wait("error", message => message.code === "ROLE_NOT_ALLOWED");
       }
       const invalid = await open(); invalid.send({ type: "join_room", roomCode, token: "invalid" });
@@ -170,7 +171,7 @@ test("50 concurrent classroom students plus teacher: capacity, reconnects, ranks
         const peer = active.get(index)!; peer.send({ type: "ready" });
         await peer.wait("room_state", message => message.players.some((p: any) => p.userId === identities[index].id && p.ready));
       }));
-      host.socket.terminate(); host = await open();
+      host.socket.terminate(); host = await open(0);
       host.send({ type: "join_room", roomCode, token: identities[0].token }); await host.wait("room_joined");
       const state = await host.wait("room_state", message => message.studentCount === 50);
       assert.equal(state.players.length, 51);
@@ -201,7 +202,7 @@ test("50 concurrent classroom students plus teacher: capacity, reconnects, ranks
       const personal = await active.get(studentIndex)!.wait("rank_update", message => message.rank === 1 && message.score === 100);
       assert.equal(personal.totalStudents, 50);
       active.get(studentIndex)!.socket.terminate();
-      const replacement = await open(); active.set(studentIndex, replacement);
+      const replacement = await open(studentIndex); active.set(studentIndex, replacement);
       replacement.send({ type: "join_room", roomCode, token: identities[studentIndex].token }); await replacement.wait("room_joined");
       const restored = await replacement.wait("rank_update", message => message.score === 100);
       assert.equal(restored.rank, 1); assert.equal(restored.totalStudents, 50);
@@ -217,13 +218,13 @@ test("50 concurrent classroom students plus teacher: capacity, reconnects, ranks
       assert.deepEqual(saved.map((p: any) => p.user_id), final.players.map((p: any) => p.userId));
       assert.deepEqual(saved.map((p: any) => p.position), Array.from({ length: 50 }, (_, i) => i + 1));
       assert(saved.every((p: any) => p.end_reason === "time"));
-      const get = (path: string, account: number) => fetch(base + path, { headers: { authorization: `Bearer ${identities[account].token}` } });
+      const get = (path: string, account: number) => fetch(base + path, { headers: { cookie: `typetiles_session=${identities[account].token}` } });
       const detail = await get(`/teacher/matches/${match.id}`, 0); assert.equal(detail.status, 200);
       assert.equal((await detail.json()).participants.length, 50);
       assert.equal((await get(`/teacher/matches/${match.id}`, 52)).status, 404);
       assert.equal((await get(`/teacher/matches/${match.id}`, joined[0])).status, 403);
       assert.equal((await (await get("/users/history", joined[0])).json()).history.length, 1);
-      const late = await open(); late.send({ type: "join_room", roomCode, token: identities[joined[0]].token }); await late.wait("room_joined");
+      const late = await open(joined[0]); late.send({ type: "join_room", roomCode, token: identities[joined[0]].token }); await late.wait("room_joined");
       assert.equal((await late.wait("classroom_results")).players.length, 50);
       for (const peer of peers) peer.socket.terminate();
       await new Promise<void>(resolve => lan.close(() => resolve()));
@@ -265,7 +266,7 @@ test("configured capacity releases explicit pre-match leaves; deadline saves dis
   try {
     server.listen(0, "127.0.0.1"); await once(server, "listening");
     const address = server.address(); assert(address && typeof address !== "string");
-    for (let index = 0; index < 3; index++) peers.push(await Peer.open(`ws://127.0.0.1:${address.port}/ws`));
+    for (let index = 0; index < 3; index++) peers.push(await Peer.open(`ws://127.0.0.1:${address.port}/ws`, tokens[index]));
     const [host, first, second] = peers;
     host.send({ type: "create_room", token: tokens[0], wordSet: "General", difficulty: "Easy", roundTime: 30 });
     const roomCode = (await host.wait("room_created")).roomCode;

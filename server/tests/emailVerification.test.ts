@@ -1,3 +1,4 @@
+import { socketOptions } from "./cookieFixtures.js";
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { mkdtemp, rm } from "node:fs/promises";
@@ -54,10 +55,10 @@ test("email verification integration: isolated SQLite and mocked delivery", { ti
   await once(server, "listening");
   const port = (server.address() as { port: number }).port;
   const post = async (path: string, body: unknown) => {
-    const response = await fetch(`http://127.0.0.1:${port}/api/auth${path}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
-    return { status: response.status, body: await response.json() };
+    const response = await fetch(`http://127.0.0.1:${port}/api/auth${path}`, { method: "POST", headers: { "Content-Type": "application/json", Origin: "http://localhost:5173", "X-TypeTiles-Request": "1" }, body: JSON.stringify(body) });
+    return { status: response.status, body: await response.json(), sessionToken: response.headers.get("set-cookie")?.match(/(?:^|,\s*)typetiles_session=([^;]+)/)?.[1] };
   };
-  const me = async (token: string) => (await fetch(`http://127.0.0.1:${port}/api/auth/me`, { headers: { Authorization: `Bearer ${token}` } })).status;
+  const me = async (token: string) => (await fetch(`http://127.0.0.1:${port}/api/auth/me`, { headers: { cookie: `typetiles_session=${token}` } })).status;
   const register = async (name: string) => service.register({ username: name, email: `${name}@example.com`, password: "new-password", displayName: name }, name);
   const codeFor = (name: string) => mail.filter((item) => item.to === `${name}@example.com`).at(-1)!.code;
   const userFor = (name: string) => db.get("SELECT * FROM users WHERE username=?", name);
@@ -70,8 +71,8 @@ test("email verification integration: isolated SQLite and mocked delivery", { ti
         assert.equal(after.email_verified_at, null);
         const result = await post("/login", { username: before.username, password: "old-password" });
         assert.equal(result.status, 200);
-        assert.equal(verifyToken(result.body.token)?.sessionVersion, 3);
-        assert.equal(await me(result.body.token), 200);
+        assert.equal(verifyToken(result.sessionToken)?.sessionVersion, 3);
+        assert.equal(await me(result.sessionToken), 200);
       }
     });
 
@@ -134,7 +135,7 @@ test("email verification integration: isolated SQLite and mocked delivery", { ti
       const stats = await db.get("SELECT * FROM user_stats WHERE user_id=?", before.id);
       const token = generateToken({ userId: before.id, username: "pending", role: "teacher" });
       assert.equal(await me(token), 401);
-      const socket = new WebSocket(`ws://127.0.0.1:${port}/ws`);
+      const socket = new WebSocket(`ws://127.0.0.1:${port}/ws`, socketOptions(token));
       await once(socket, "open");
       const denied = once(socket, "message");
       socket.send(JSON.stringify({ type: "create_room", token }));
@@ -152,7 +153,7 @@ test("email verification integration: isolated SQLite and mocked delivery", { ti
       assert.equal(await me(token), 200);
       assert.equal((await post("/login", { username: "pending", password: "new-password" })).status, 200);
       assert.equal((await post("/verify-email", { email: "pending@example.com", code: codeFor("pending") })).status, 400);
-      const verified = new WebSocket(`ws://127.0.0.1:${port}/ws`);
+      const verified = new WebSocket(`ws://127.0.0.1:${port}/ws`, socketOptions(token));
       await once(verified, "open");
       const created = once(verified, "message");
       verified.send(JSON.stringify({ type: "create_room", token, wordSet: "General", difficulty: "Normal", roundTime: 90 }));

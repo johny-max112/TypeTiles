@@ -43,7 +43,7 @@ test("sentence practice: additive migration, API validation and durable history"
     const address = server.address();
     assert(address && typeof address !== "string");
     const base = `http://127.0.0.1:${address.port}/api`;
-    const headers = { authorization: `Bearer ${token}`, "content-type": "application/json" };
+    const headers = { cookie: `typetiles_session=${token}`, "Content-Type": "application/json", Origin: "http://localhost:5173", "X-TypeTiles-Request": "1" };
     const create = (body: object) => fetch(`${base}/matches`, { method: "POST", headers, body: JSON.stringify(body) });
     const defaults = { mode: "Solo Practice", difficulty: "Normal", roundTime: 90, wordSet: "General" };
     assert.equal((await create({ ...defaults, practiceFormat: "invalid" })).status, 400);

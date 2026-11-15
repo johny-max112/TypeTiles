@@ -17,9 +17,10 @@ interface AuthUser {
 function AdminLayout({ children, onLogout }: { children: React.ReactNode; onLogout: () => void }) {
   const navigate = useNavigate();
 
-  const handleLogout = () => {
-    localStorage.removeItem("admin_token");
-    apiClient.setToken("");
+  const handleLogout = async () => {
+    try { await apiClient.logout(); } catch (error: any) {
+      if (error.response?.status !== 401) { window.alert("Logout failed. Please retry."); return; }
+    }
     onLogout();
     navigate("/login");
   };
@@ -71,39 +72,16 @@ function App() {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const token = localStorage.getItem("admin_token");
-    if (token) {
-      apiClient.setToken(token);
-      apiClient
-        .getCurrentUser()
-        .then((res) => {
-          if (res.data.user.role === "admin") {
-            setIsAuthenticated(true);
-          } else {
-            localStorage.removeItem("admin_token");
-            setIsAuthenticated(false);
-          }
-        })
-        .catch(() => {
-          localStorage.removeItem("admin_token");
-          setIsAuthenticated(false);
-        })
-        .finally(() => {
-          setIsLoading(false);
-        });
-    } else {
-      setIsLoading(false);
-    }
+    const ended = () => setIsAuthenticated(false);
+    window.addEventListener("typetiles:session-ended", ended);
+    apiClient.getCurrentUser().then(res => setIsAuthenticated(res.data.user.role === "admin"))
+      .catch(() => setIsAuthenticated(false)).finally(() => setIsLoading(false));
+    return () => window.removeEventListener("typetiles:session-ended", ended);
   }, []);
 
-  const handleLogin = (token: string, userData: AuthUser) => {
-    if (userData.role === "admin") {
-      localStorage.setItem("admin_token", token);
-      apiClient.setToken(token);
-      setIsAuthenticated(true);
-    } else {
-      alert("You don't have admin access");
-    }
+  const handleLogin = (userData: AuthUser) => {
+    if (userData.role === "admin") setIsAuthenticated(true);
+    else alert("You don't have admin access");
   };
 
   const handleLogout = () => {

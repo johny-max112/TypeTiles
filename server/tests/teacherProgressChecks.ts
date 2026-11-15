@@ -35,8 +35,8 @@ export async function teacherProgressChecks(db: ApplicationDatabase, base: strin
   await participate(await session(null, "completed", "2026-05-01T00:00:00.000Z"), 2, 777, 77);
   await participate(await session(null, "completed", "2026-05-01T00:00:00.000Z", "Solo Practice"), 2, 666, 66);
   const get = async (path: string, index?: number) => {
-    const response = await fetch(base + path, { headers: index === undefined ? {} : { authorization: `Bearer ${users[index].token}` } });
-    return { status: response.status, body: await response.json(), cache: response.headers.get("cache-control") };
+    const response = await fetch(base + path, { headers: index === undefined ? {} : { cookie: `typetiles_session=${users[index].token}` } });
+    return { status: response.status, body: await response.json(), sessionToken: response.headers.get("set-cookie")?.match(/(?:^|,\s*)typetiles_session=([^;]+)/)?.[1], cache: response.headers.get("cache-control") };
   };
   const historyPath = (index: number) => `/teacher/students/${users[index].id}/history`;
   assert.equal((await get("/teacher/students")).status, 401);

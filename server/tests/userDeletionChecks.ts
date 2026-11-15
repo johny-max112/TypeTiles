@@ -1,3 +1,4 @@
+import { socketOptions } from "./cookieFixtures.js";
 import assert from "node:assert/strict";
 import { once } from "node:events";
 import { WebSocket } from "ws";
@@ -15,11 +16,11 @@ export async function userDeletionChecks(db: ApplicationDatabase, base: string, 
   }
   const request = async (path: string, index?: number, method = "DELETE") => {
     const response = await fetch(base + path, { method,
-      headers: index === undefined ? {} : { authorization: `Bearer ${accounts[index].token}` } });
-    return { status: response.status, body: await response.json() };
+      headers: index === undefined ? {} : { cookie: `typetiles_session=${accounts[index].token}` } });
+    return { status: response.status, body: await response.json(), sessionToken: response.headers.get("set-cookie")?.match(/(?:^|,\s*)typetiles_session=([^;]+)/)?.[1] };
   };
-  const open = async () => {
-    const socket = new WebSocket(wsUrl); sockets.push(socket);
+  const open = async (token?: string) => {
+    const socket = new WebSocket(wsUrl, socketOptions(token)); sockets.push(socket);
     const inbox: any[] = [];
     socket.on("message", raw => inbox.push(JSON.parse(raw.toString())));
     await once(socket, "open");
@@ -41,11 +42,11 @@ export async function userDeletionChecks(db: ApplicationDatabase, base: string, 
   assert.equal((await request(`/admin/users/${accounts[0].id}`, 0)).status, 403);
   assert.equal((await request("/admin/users/not-an-id", 0)).status, 400);
   assert.equal((await request("/admin/users/999999999", 0)).status, 404);
-  const teacher = await open();
+  const teacher = await open(accounts[1].token);
   teacher.send({ type: "create_room", token: accounts[1].token, wordSet: "General" });
   const { roomCode } = await teacher.wait("room_created");
   const match = await db.get("SELECT * FROM matches WHERE owner_user_id=?", accounts[1].id);
-  const student = await open();
+  const student = await open(accounts[2].token);
   student.send({ type: "join_room", token: accounts[2].token, roomCode }); await student.wait("room_joined");
   await db.run("INSERT INTO match_results(match_id,user_id,result) VALUES(?,?,'win')", match.id, accounts[2].id);
   await db.run("INSERT INTO feedback(user_id,message) VALUES(?,'test feedback')", accounts[2].id);

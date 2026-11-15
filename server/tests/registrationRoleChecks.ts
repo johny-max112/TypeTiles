@@ -1,3 +1,4 @@
+import { socketOptions } from "./cookieFixtures.js";
 import assert from "node:assert/strict";
 import { once } from "node:events";
 import { WebSocket } from "ws";
@@ -9,10 +10,10 @@ export async function registrationRoleChecks(db: ApplicationDatabase, base: stri
   sockets: WebSocket[], mail: { to: string; code: string }[]) {
   const request = async (path: string, body?: object, token?: string) => {
     const response = await fetch(base + path, { method: body ? "POST" : "GET",
-      headers: { "content-type": "application/json", ...(token ? { authorization: `Bearer ${token}` } : {}) },
+      headers: { "Content-Type": "application/json", Origin: "http://localhost:5173", "X-TypeTiles-Request": "1", ...(token ? { cookie: `typetiles_session=${token}` } : {}) },
       ...(body ? { body: JSON.stringify(body) } : {}),
     });
-    return { status: response.status, body: await response.json() };
+    return { status: response.status, body: await response.json(), sessionToken: response.headers.get("set-cookie")?.match(/(?:^|,\s*)typetiles_session=([^;]+)/)?.[1] };
   };
   const input = { username: "role-invalid", email: "role-invalid@example.test", password: "new-password", displayName: "Role test" };
   const before = await db.all("SELECT * FROM users ORDER BY id");
@@ -26,8 +27,8 @@ export async function registrationRoleChecks(db: ApplicationDatabase, base: stri
   assert.deepEqual(await db.all("SELECT * FROM users ORDER BY id"), before);
   assert.equal(mail.length, sentBefore);
 
-  const open = async () => {
-    const socket = new WebSocket(wsUrl); sockets.push(socket);
+  const open = async (token?: string) => {
+    const socket = new WebSocket(wsUrl, socketOptions(token)); sockets.push(socket);
     const inbox: any[] = [];
     socket.on("message", raw => inbox.push(JSON.parse(raw.toString())));
     await once(socket, "open");
@@ -55,7 +56,7 @@ export async function registrationRoleChecks(db: ApplicationDatabase, base: stri
     assert.equal(user.role, role ?? "student"); assert.equal(user.email_verified, 0);
     assert.equal(user.email_verified_at, null); assert.equal(user.session_version, 0);
     assert.equal((await request("/auth/login", { username, password: input.password })).status, 403);
-    const pending = await open();
+    const pending = await open(generateToken({ userId: user.id, username, role: role ?? "student" }));
     pending.send({ type: "create_room", token: generateToken({ userId: user.id, username, role: "teacher" }) });
     await pending.wait("error", message => /Authentication/.test(message.message));
     const code = mail.filter(item => item.to === email).at(-1)!.code;
@@ -68,7 +69,7 @@ export async function registrationRoleChecks(db: ApplicationDatabase, base: stri
     assert.equal((await request("/auth/verify-email", { email, code })).status, 400);
     const login = await request("/auth/login", { username, password: input.password });
     assert.equal(login.status, 200); assert.equal(login.body.user.role, role ?? "student");
-    users.push({ id: user.id, token: login.body.token });
+    users.push({ id: user.id, token: login.sessionToken });
     const opposite = role === "teacher" ? "student" : "teacher";
     assert.equal((await request("/auth/register", { ...payload, role: opposite })).status, 409);
     assert.deepEqual(await db.get("SELECT * FROM users WHERE id=?", user.id), verified);
@@ -89,20 +90,20 @@ export async function registrationRoleChecks(db: ApplicationDatabase, base: stri
     assert.equal((await request("/auth/register", { ...input, username: admin.username, email: admin.email, role: "teacher" })).status, 409);
     assert.deepEqual(await db.get("SELECT * FROM users WHERE id=?", admin.id), admin);
   }
-  const teacher = await open();
+  const teacher = await open(users[1].token);
   teacher.send({ type: "create_room", token: users[1].token, wordSet: "General", roundTime: 30 });
   const { roomCode } = await teacher.wait("room_created");
   const match = await db.get("SELECT * FROM matches WHERE owner_user_id=?", users[1].id);
   assert(match);
-  const student = await open();
+  const student = await open(users[0].token);
   student.send({ type: "create_room", token: users[0].token });
   await student.wait("error", message => /Only teachers/.test(message.message));
   student.send({ type: "join_room", token: users[0].token, roomCode }); await student.wait("room_joined");
   assert.equal((await request(`/teacher/matches/${match.id}`, undefined, users[0].token)).status, 403);
   assert.equal((await request(`/teacher/matches/${match.id}`, undefined, users[1].token)).status, 200);
-  assert.equal((await request(`/teacher/matches/${match.id}`, undefined, secondLogin.body.token)).status, 404);
-  assert.equal((await request(`/matches/${match.id}`, undefined, secondLogin.body.token)).status, 404);
-  assert.equal((await request(`/matches/${match.id}/join`, {}, secondLogin.body.token)).status, 403);
+  assert.equal((await request(`/teacher/matches/${match.id}`, undefined, secondLogin.sessionToken)).status, 404);
+  assert.equal((await request(`/matches/${match.id}`, undefined, secondLogin.sessionToken)).status, 404);
+  assert.equal((await request(`/matches/${match.id}/join`, {}, secondLogin.sessionToken)).status, 403);
   assert.equal((await request(`/admin/users`, undefined, users[1].token)).status, 403);
   teacher.send({ type: "cancel_room" }); await teacher.wait("room_cancelled");
 }

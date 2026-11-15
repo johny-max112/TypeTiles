@@ -1,3 +1,4 @@
+import { socketOptions } from "./cookieFixtures.js";
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { mkdtemp, rm } from "node:fs/promises";
@@ -22,8 +23,8 @@ class Peer {
   private constructor(readonly socket: WebSocket) {
     socket.on("message", raw => this.messages.push(JSON.parse(raw.toString())));
   }
-  static async open(url: string) {
-    const peer = new Peer(new WebSocket(url)); await once(peer.socket, "open"); return peer;
+  static async open(url: string, token?: string) {
+    const peer = new Peer(new WebSocket(url, socketOptions(token))); await once(peer.socket, "open"); return peer;
   }
   send(message: object) { this.socket.send(JSON.stringify(message)); }
   async wait(type: string, predicate: (message: any) => boolean = () => true) {
@@ -86,7 +87,7 @@ test("classroom formats: real sockets share teacher content, retain format on re
   try {
     server.listen(0, "127.0.0.1"); await once(server, "listening");
     const address = server.address(); assert(address && typeof address !== "string");
-    const open = async () => { const peer = await Peer.open(`ws://127.0.0.1:${address.port}/ws`); peers.push(peer); return peer; };
+    const open = async (index = 0) => { const peer = await Peer.open(`ws://127.0.0.1:${address.port}/ws`, accounts[index].token); peers.push(peer); return peer; };
     await t.test("invalid create returns explicit error without storing a match", async () => {
       const host = await open();
       host.send({ type: "create_room", token: accounts[0].token, ...defaults, wordSet: "Stenography", practiceFormat: "word-phrase" });
@@ -96,7 +97,7 @@ test("classroom formats: real sockets share teacher content, retain format on re
     for (const wordSet of [...Object.keys(SENTENCE_BANK), "stenography"]) {
       const formats: PracticeFormat[] = wordSet === "stenography" ? ["full-sentence"] : ["word-phrase", "full-sentence"];
       for (const practiceFormat of formats) await t.test(`${wordSet}: ${practiceFormat}`, async () => {
-        const host = await open(); const student = await open(); let second = await open();
+        const host = await open(); const student = await open(1); let second = await open(2);
         // Create in the other format, then exercise the teacher's existing update event.
         host.send({ type: "create_room", token: accounts[0].token, ...defaults,
           wordSet: wordSet === "stenography" ? "general" : wordSet,
@@ -130,7 +131,7 @@ test("classroom formats: real sockets share teacher content, retain format on re
         else assert(start.wordSequence.every((word: string) => WORD_BANK[wordSet as keyof typeof SENTENCE_BANK].includes(word)));
         host.send({ type: "update_match_config", token: accounts[0].token, practiceFormat: "word-phrase" });
         await host.wait("error", m => /cannot change/.test(m.message));
-        second.socket.terminate(); second = await open();
+        second.socket.terminate(); second = await open(2);
         second.send({ type: "join_room", roomCode, token: accounts[2].token, practiceFormat: "invented" });
         await second.wait("room_joined"); const resumed = await second.wait("room_started");
         assert.deepEqual(resumed.matchConfig, start.matchConfig); assert.deepEqual(resumed.wordSequence, start.wordSequence);

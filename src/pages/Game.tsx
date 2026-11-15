@@ -7,7 +7,6 @@ import type {
   GameResult,
 } from "../scenes/GameScene";
 import {
-  PLAYER_TOKEN_KEY,
   submitPlayerMatchResult,
 } from "../lib/playerApi";
 import { usePlayerAuth } from "../lib/PlayerAuthContext";
@@ -97,14 +96,11 @@ export default function Game({
 
       socket.onopen = () => {
         if (disposed || socketRef.current !== socket) return;
-        const token =
-          localStorage.getItem(PLAYER_TOKEN_KEY);
 
         socket.send(
           JSON.stringify({
             type: "join_room",
             roomCode,
-            token,
           })
         );
       };
@@ -286,10 +282,6 @@ export default function Game({
       socketRef.current.send(
         JSON.stringify({
           type: "leave_room",
-          token:
-            localStorage.getItem(
-              PLAYER_TOKEN_KEY
-            ),
         })
       );
     }

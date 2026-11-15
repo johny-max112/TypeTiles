@@ -7,7 +7,7 @@ import { ClassroomLeaderboard } from "../components/ClassroomLeaderboard";
 import { ClassroomFormatSelect } from "../components/ClassroomFormatSelect";
 import type { ClassroomMatchConfig as ServerClassroomMatchConfig } from "../../server/src/classroomConfig";
 import type { ClassroomStanding } from "../lib/classroomTypes";
-import { PLAYER_TOKEN_KEY } from "../lib/playerApi";
+
 import { getBackendEndpoints, getSavedClassroomConnection, CLASSROOM_ROOM_KEY as LAN_ROOM_CODE_KEY, CLASSROOM_ENDPOINT_KEY, type BackendEndpoints } from "../lib/endpoints";
 import { usePlayerAuth } from "../lib/PlayerAuthContext";
 import { WORD_CATEGORIES, type WordCategory } from "../words";
@@ -113,16 +113,10 @@ export default function Lobby() {
       setError("");
 
       if (pendingMessageRef.current) {
-        const token = localStorage.getItem(PLAYER_TOKEN_KEY);
 
         socket.send(
           JSON.stringify(
-            token
-              ? {
-                  ...pendingMessageRef.current,
-                  token,
-                }
-              : pendingMessageRef.current
+            pendingMessageRef.current
           )
         );
 
@@ -177,16 +171,10 @@ export default function Lobby() {
           message.type === "room_joined" &&
           pendingAfterReconnectRef.current
         ) {
-          const token = localStorage.getItem(PLAYER_TOKEN_KEY);
 
           socket.send(
             JSON.stringify(
-              token
-                ? {
-                    ...pendingAfterReconnectRef.current,
-                    token,
-                  }
-                : pendingAfterReconnectRef.current
+              pendingAfterReconnectRef.current
             )
           );
 
@@ -398,16 +386,9 @@ export default function Lobby() {
       return;
     }
 
-    const token = localStorage.getItem(PLAYER_TOKEN_KEY);
-
     socketRef.current.send(
       JSON.stringify(
-        token
-          ? {
-              ...message,
-              token,
-            }
-          : message
+        message
       )
     );
   };
@@ -494,9 +475,6 @@ export default function Lobby() {
       socketRef.current.send(
         JSON.stringify({
           type: "leave_room",
-          token: localStorage.getItem(
-            PLAYER_TOKEN_KEY
-          ),
         })
       );
     } else {
@@ -525,9 +503,6 @@ export default function Lobby() {
       socketRef.current.send(
         JSON.stringify({
           type: "cancel_room",
-          token: localStorage.getItem(
-            PLAYER_TOKEN_KEY
-          ),
         })
       );
 

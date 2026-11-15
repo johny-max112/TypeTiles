@@ -1,0 +1,15 @@
+{
+  "pdf": "C:\\Users\\deo\\OneDrive\\Desktop\\type-tiles1\\docs\\TypeTiles_IT_Expert_Demo_Script.pdf",
+  "pages": 17,
+  "expectedPages": 17,
+  "bytes": 183441,
+  "layout": {
+    "sections": 26,
+    "overflow": false
+  },
+  "opened": {
+    "url": "file:///C:/Users/deo/OneDrive/Desktop/type-tiles1/docs/TypeTiles_IT_Expert_Demo_Script.pdf",
+    "visualConfirmation": "PDF opened successfully in Chrome; viewer shows 17 pages. Cover inspected visually."
+  },
+  "layoutNote": "Expected 17 pages generated: cover, contents, thirteen two-section chapters, checklist, source references. No horizontal HTML overflow."
+}

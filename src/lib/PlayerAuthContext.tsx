@@ -3,7 +3,8 @@ import type { ReactNode } from "react";
 import {
   getCurrentPlayer,
   loginPlayer,
-  PLAYER_TOKEN_KEY,
+  logoutPlayer,
+  ApiError,
   registerPlayer,
   updatePlayerProfile,
   type PlayerStats,
@@ -30,7 +31,7 @@ type PlayerAuthContextValue = {
   verificationResendAt: number;
   clearPendingVerification: () => void;
   updateProfile: (input: { displayName?: string; avatar?: string; background?: string }) => Promise<void>;
-  logout: () => void;
+  logout: () => Promise<void>;
 };
 
 const PlayerAuthContext = createContext<PlayerAuthContextValue | null>(null);
@@ -44,23 +45,23 @@ export function PlayerAuthProvider({ children }: { children: ReactNode }) {
   const [verificationResendAt, setVerificationResendAt] = useState(0);
 
   useEffect(() => {
-    const token = localStorage.getItem(PLAYER_TOKEN_KEY);
-    if (!token) {
-      setIsLoading(false);
-      return;
-    }
-
-    getCurrentPlayer(token)
+    getCurrentPlayer()
       .then(({ user: restoredUser, stats: restoredStats }) => {
         setUser(restoredUser);
         setStats(restoredStats ?? null);
       })
       .catch(() => {
-        localStorage.removeItem(PLAYER_TOKEN_KEY);
+
         setUser(null);
         setStats(null);
       })
       .finally(() => setIsLoading(false));
+  }, []);
+
+  useEffect(() => {
+    const ended = () => { setUser(null); setStats(null); };
+    window.addEventListener("typetiles:session-ended", ended);
+    return () => window.removeEventListener("typetiles:session-ended", ended);
   }, []);
 
   const value = useMemo<PlayerAuthContextValue>(
@@ -73,7 +74,7 @@ export function PlayerAuthProvider({ children }: { children: ReactNode }) {
       clearPendingVerification: () => { setVerificationEmail(""); setVerificationResendAt(0); },
       login: async (username, password) => {
         const response = await loginPlayer(username, password);
-        localStorage.setItem(PLAYER_TOKEN_KEY, response.token);
+        await getCurrentPlayer(); // Confirm that the browser accepted the session cookie.
         setUser(response.user);
         setStats(null);
       },
@@ -88,8 +89,11 @@ export function PlayerAuthProvider({ children }: { children: ReactNode }) {
         const response = await updatePlayerProfile(input);
         setUser(response.user);
       },
-      logout: () => {
-        localStorage.removeItem(PLAYER_TOKEN_KEY);
+      logout: async () => {
+        try { await logoutPlayer(); } catch (error) {
+          if (!(error instanceof ApiError) || error.status !== 401) throw error;
+        }
+
         setUser(null);
         setStats(null);
       },

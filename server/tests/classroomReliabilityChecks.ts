@@ -1,3 +1,4 @@
+import { socketOptions } from "./cookieFixtures.js";
 import assert from "node:assert/strict";
 import { once } from "node:events";
 import { WebSocket } from "ws";
@@ -13,11 +14,11 @@ export async function classroomReliabilityChecks(db: ApplicationDatabase, base: 
     identities.push({ id, token: generateToken({ userId: id, username: `reliable-${i}`, role }) });
   }
   const get = async (path: string, i = 0) => {
-    const response = await fetch(base + path, { headers: { authorization: `Bearer ${identities[i].token}` } });
-    return { status: response.status, body: await response.json() };
+    const response = await fetch(base + path, { headers: { cookie: `typetiles_session=${identities[i].token}` } });
+    return { status: response.status, body: await response.json(), sessionToken: response.headers.get("set-cookie")?.match(/(?:^|,\s*)typetiles_session=([^;]+)/)?.[1] };
   };
   const open = async (i: number) => {
-    const socket = new WebSocket(wsUrl); sockets.push(socket); const messages: any[] = [];
+    const socket = new WebSocket(wsUrl, socketOptions(identities[i].token)); sockets.push(socket); const messages: any[] = [];
     socket.on("message", raw => messages.push(JSON.parse(raw.toString()))); await once(socket, "open");
     return { send: (body: object) => socket.send(JSON.stringify({ ...body, token: identities[i].token, playerName: "Impersonated name" })),
       wait: async (type: string, predicate: (message: any) => boolean = () => true) => {

@@ -12,10 +12,10 @@ export async function resultIntegrityChecks(db: ApplicationDatabase, base: strin
   const token = (user: any) => generateToken({ userId: user.id, username: user.username, role: user.role, sessionVersion: user.session_version });
   const request = async (path: string, user: any, body?: object) => {
     const response = await fetch(base + path, { method: body ? "POST" : "GET",
-      headers: { "content-type": "application/json", authorization: `Bearer ${token(user)}` },
+      headers: { "Content-Type": "application/json", Origin: "http://localhost:5173", "X-TypeTiles-Request": "1", cookie: `typetiles_session=${token(user)}` },
       ...(body ? { body: JSON.stringify(body) } : {}),
     });
-    return { status: response.status, body: await response.json() };
+    return { status: response.status, body: await response.json(), sessionToken: response.headers.get("set-cookie")?.match(/(?:^|,\s*)typetiles_session=([^;]+)/)?.[1] };
   };
   const metrics = { score: 98765, wpm: 123.5, accuracy: 99, errorRate: 1, completedWords: 99, endReason: "time", remainingLives: 3 };
   const snapshot = async (id: number) => ({

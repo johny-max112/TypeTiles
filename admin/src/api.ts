@@ -8,14 +8,20 @@ class APIClient {
   constructor() {
     this.client = axios.create({
       baseURL: API_URL,
+      withCredentials: true,
       headers: {
         "Content-Type": "application/json",
+        "X-TypeTiles-Request": "1",
       },
+    });
+    this.client.interceptors.response.use(response => response, error => {
+      if (error.response?.status === 401) window.dispatchEvent(new Event("typetiles:session-ended"));
+      return Promise.reject(error);
     });
   }
 
-  setToken(token: string) {
-    this.client.defaults.headers.common["Authorization"] = `Bearer ${token}`;
+  async logout() {
+    return this.client.post("/auth/logout");
   }
 
   // Auth

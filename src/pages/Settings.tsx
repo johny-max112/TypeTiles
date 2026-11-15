@@ -53,7 +53,7 @@ export default function Settings() {
             </button>
           ))}
         </div>
-        <button type="button" onClick={() => { logout(); navigate("/welcome", { replace: true }); }} className="mx-auto mt-4 block h-[60px] w-full max-w-[420px] rounded-[8px] bg-[#2746a6] text-[22px] font-medium text-white transition hover:brightness-110">Sign Out</button>
+        <button type="button" onClick={async () => { try { await logout(); navigate("/welcome", { replace: true }); } catch { window.alert("Logout failed. Please retry; your session is still active."); } }} className="mx-auto mt-4 block h-[60px] w-full max-w-[420px] rounded-[8px] bg-[#2746a6] text-[22px] font-medium text-white transition hover:brightness-110">Sign Out</button>
       </div>
     </section>
   );

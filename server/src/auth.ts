@@ -11,7 +11,7 @@ export function jwtSecret(): string {
   }
   return strong ? secret! : developmentSecret;
 }
-const JWT_EXPIRY = "7d";
+const JWT_EXPIRY = "15m";
 
 export interface JWTPayload {
   userId: number;
@@ -42,8 +42,8 @@ export function generateToken(payload: JWTPayload): string {
 
 export function verifyToken(token: string): JWTPayload | null {
   try {
-    const payload = jwt.verify(token, jwtSecret(), { algorithms: ["HS256"] }) as JWTPayload;
-    if (!Number.isInteger(payload.userId) || (payload.sessionVersion !== undefined && (!Number.isInteger(payload.sessionVersion) || payload.sessionVersion < 0))) return null;
+    const payload = jwt.verify(token, jwtSecret(), { algorithms: ["HS256"], maxAge: "15m" }) as JWTPayload;
+    if (!Number.isInteger(payload.userId) || !Number.isInteger(payload.sessionVersion) || payload.sessionVersion! < 0 || typeof (payload as any).exp !== "number") return null;
     return payload;
   } catch (error) {
     return null;

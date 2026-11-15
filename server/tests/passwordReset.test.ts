@@ -1,3 +1,4 @@
+import { socketOptions } from "./cookieFixtures.js";
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { mkdtemp, rm } from "node:fs/promises";
@@ -47,10 +48,10 @@ test("password recovery integration (isolated SQLite; mocked delivery)", async (
   const address = server.address() as { port: number };
   const base = `http://127.0.0.1:${address.port}/api/auth`;
   const request = async (path: string, body: object) => {
-    const response = await fetch(`${base}${path}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
-    return { status: response.status, body: await response.json() };
+    const response = await fetch(`${base}${path}`, { method: "POST", headers: { "Content-Type": "application/json", Origin: "http://localhost:5173", "X-TypeTiles-Request": "1" }, body: JSON.stringify(body) });
+    return { status: response.status, body: await response.json(), sessionToken: response.headers.get("set-cookie")?.match(/(?:^|,\s*)typetiles_session=([^;]+)/)?.[1] };
   };
-  const me = async (token: string) => (await fetch(`${base}/me`, { headers: { Authorization: `Bearer ${token}` } })).status;
+  const me = async (token: string) => (await fetch(`${base}/me`, { headers: { cookie: `typetiles_session=${token}` } })).status;
   const seed = async (name: string, role = "player", email = `${name}@example.com`) => {
     // Fixtures represent existing verified users; new-registration behavior is tested separately.
     const result = await db.run("INSERT INTO users(username,email,password_hash,display_name,role,email_verified) VALUES(?,?,?,?,?,1)", name, email, await hashPassword("old-password"), name, role);
@@ -170,7 +171,7 @@ test("password recovery integration (isolated SQLite; mocked delivery)", async (
         const old = generateToken({ userId: id, username: name, role: normalizeRole(role) });
         const legacy = jwt.sign({ userId: id, username: name, role }, jwtSecret());
         assert.equal(await me(old), 200);
-        assert.equal(await me(legacy), 200);
+        assert.equal(await me(legacy), 401); // Tokens without explicit expiry/version are no longer accepted.
         await service.forgot(`${name}@example.com`, name);
         const value = code();
         const outcomes = await Promise.all([service.reset(`${name}@example.com`, value, "new-password", name), service.reset(`${name}@example.com`, value, "new-password", name)]);
@@ -189,8 +190,8 @@ test("password recovery integration (isolated SQLite; mocked delivery)", async (
         const login = await request("/login", { username: name, password: "new-password" });
         assert.equal(login.status, 200);
         assert.equal(login.body.user.role, normalizeRole(role));
-        assert.equal(verifyToken(login.body.token)?.sessionVersion, 1);
-        assert.equal(await me(login.body.token), 200);
+        assert.equal(verifyToken(login.sessionToken)?.sessionVersion, 1);
+        assert.equal(await me(login.sessionToken), 200);
       }
     });
 
@@ -216,7 +217,7 @@ test("password recovery integration (isolated SQLite; mocked delivery)", async (
     await t.test("existing LAN socket is evicted and old JWT cannot reconnect", async () => {
       const id = await seed("socket", "teacher");
       const token = generateToken({ userId: id, username: "socket", role: "teacher" });
-      const socket = new WebSocket(`ws://127.0.0.1:${address.port}/ws`);
+      const socket = new WebSocket(`ws://127.0.0.1:${address.port}/ws`, socketOptions(token));
       await once(socket, "open");
       const created = once(socket, "message");
       socket.send(JSON.stringify({ type: "create_room", token, wordSet: "General", difficulty: "Normal", roundTime: 90 }));
@@ -225,7 +226,7 @@ test("password recovery integration (isolated SQLite; mocked delivery)", async (
       const closed = once(socket, "close");
       assert.equal(await service.reset("socket@example.com", code(), "socket-new-password", "socket-ip"), true);
       assert.equal((await closed)[0], 4001);
-      const reconnect = new WebSocket(`ws://127.0.0.1:${address.port}/ws`);
+      const reconnect = new WebSocket(`ws://127.0.0.1:${address.port}/ws`, socketOptions(token));
       await once(reconnect, "open");
       const denied = once(reconnect, "message");
       reconnect.send(JSON.stringify({ type: "create_room", token }));
@@ -238,7 +239,7 @@ test("password recovery integration (isolated SQLite; mocked delivery)", async (
     await t.test("LAN actions recheck persisted version without an in-process reset event", async () => {
       const id = await seed("external-socket", "teacher");
       const token = generateToken({ userId: id, username: "external-socket", role: "teacher" });
-      const socket = new WebSocket(`ws://127.0.0.1:${address.port}/ws`);
+      const socket = new WebSocket(`ws://127.0.0.1:${address.port}/ws`, socketOptions(token));
       await once(socket, "open");
       const created = once(socket, "message");
       socket.send(JSON.stringify({ type: "create_room", token, wordSet: "General", difficulty: "Normal", roundTime: 90 }));

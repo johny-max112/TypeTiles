@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from "express";
 import { verifyToken, JWTPayload, normalizeRole } from "./auth.js";
 import { getDatabase } from "./db.js";
+import { readSessionCookie } from "./cookieSecurity.js";
 
 declare global {
   namespace Express {
@@ -11,13 +12,9 @@ declare global {
 }
 
 export async function authMiddleware(req: Request, res: Response, next: NextFunction) {
-  const authHeader = req.headers.authorization;
-
-  if (!authHeader?.startsWith("Bearer ")) {
-    return res.status(401).json({ error: "Missing or invalid authorization header" });
-  }
-
-  const token = authHeader.slice(7);
+  res.set("Cache-Control", "no-store");
+  const token = readSessionCookie(req);
+  if (!token) return res.status(401).json({ error: "Authentication required" });
   const payload = verifyToken(token);
 
   if (!payload) {

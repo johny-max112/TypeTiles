@@ -1,5 +1,7 @@
+import { allowedOrigin, readSessionCookie } from "./cookieSecurity.js";
 import { randomBytes } from "crypto";
 import { IncomingMessage } from "http";
+import type { Duplex } from "stream";
 import { WebSocket, WebSocketServer } from "ws";
 import { getDatabase } from "./db.js";
 import { normalizeRole, verifyToken, type AppRole } from "./auth.js";
@@ -15,7 +17,6 @@ type ClientMessage = {
   type: "create_room" | "join_room" | "leave_room" | "cancel_room" | "update_match_config" | "ready" | "start_game" | "score_update";
   roomCode?: string;
   playerName?: string;
-  token?: string;
   score?: number;
   wpm?: number;
   accuracy?: number;
@@ -343,7 +344,14 @@ export function attachLanServer(server: import("http").Server,
   if (!Number.isInteger(maxStudents) || maxStudents < 1 || maxStudents > 50) {
     throw new Error("LAN_MAX_STUDENTS must be an integer between 1 and 50 (teacher excluded).");
   }
-  const webSocketServer = new WebSocketServer({ server, path: "/ws" });
+  const webSocketServer = new WebSocketServer({ noServer: true });
+  const upgrade = (request: IncomingMessage, socket: Duplex, head: Buffer) => {
+    if (request.url !== "/ws" || !allowedOrigin(request.headers.origin)) {
+      socket.write("HTTP/1.1 403 Forbidden\r\nConnection: close\r\n\r\n"); socket.destroy(); return;
+    }
+    webSocketServer.handleUpgrade(request, socket, head, ws => webSocketServer.emit("connection", ws, request));
+  };
+  server.on("upgrade", upgrade);
   const connections = new Set<Player>();
   const ownedRooms = new Set<Room>();
   const invalidate = (userId: number) => {
@@ -392,6 +400,7 @@ export function attachLanServer(server: import("http").Server,
   }, 5000);
   sweep.unref();
   webSocketServer.on("close", () => {
+    server.off("upgrade", upgrade);
     clearInterval(sweep);
     sessionEvents.off("invalidate", invalidate);
     sessionEvents.off("delete", deleted);
@@ -402,6 +411,7 @@ export function attachLanServer(server: import("http").Server,
   });
 
   webSocketServer.on("connection", (socket: WebSocket, request: IncomingMessage) => {
+    const handshakeToken = readSessionCookie(request);
     const player: Player = {
       id: randomBytes(8).toString("hex"),
       name: "Player",
@@ -430,13 +440,13 @@ export function attachLanServer(server: import("http").Server,
           return;
         }
         if (socket.readyState !== WebSocket.OPEN) return;
-        if (message.type === "create_room" || message.type === "join_room") player.pendingToken = message.token;
+        if (message.type === "create_room" || message.type === "join_room") player.pendingToken = handshakeToken;
         if (message.type === "create_room") {
           if (player.isHost || [...rooms.values()].some((room) => room.players.has(player.id))) {
             send(socket, { type: "error", message: "You are already in a room" });
             return;
           }
-          const identity = await authenticatePlayer(message.token);
+          const identity = await authenticatePlayer(handshakeToken);
           if (socket.readyState !== WebSocket.OPEN) return;
           if (!identity) {
             send(socket, { type: "error", message: "Authentication is required to create a room." });
@@ -457,7 +467,7 @@ export function attachLanServer(server: import("http").Server,
           });
 
           player.name = identity.username;
-          player.token = message.token;
+          player.token = handshakeToken;
           player.displayName = identity.displayName;
           player.isHost = true;
           player.userId = identity.userId;
@@ -500,7 +510,7 @@ export function attachLanServer(server: import("http").Server,
             send(socket, { type: "error", message: "Room not found. Check the room code." });
             return;
           }
-          const identity = await authenticatePlayer(message.token);
+          const identity = await authenticatePlayer(handshakeToken);
           if (socket.readyState !== WebSocket.OPEN) return;
           if (!identity) {
             send(socket, { type: "error", message: "Authentication is required to join a room." });
@@ -553,7 +563,7 @@ export function attachLanServer(server: import("http").Server,
           }
 
           player.name = identity.username;
-          player.token = message.token;
+          player.token = handshakeToken;
           player.displayName = identity.displayName;
           player.userId = identity.userId;
           player.role = identity.role;

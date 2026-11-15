@@ -30,8 +30,8 @@ export function AppShell() {
   const isMatchFlow = location.pathname === "/app/pre-match" || location.pathname === "/app/game";
   const isResultsPage = location.pathname === "/app/results";
 
-  const handleLogout = () => {
-    logout();
+  const handleLogout = async () => {
+    try { await logout(); } catch { window.alert("Logout failed. Please retry; your session is still active."); return; }
     navigate("/welcome", { replace: true });
   };
 

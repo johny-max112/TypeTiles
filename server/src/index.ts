@@ -12,46 +12,27 @@ import { attachLanServer } from "./lan.js";
 import { jwtSecret } from "./auth.js";
 import { resetSecret } from "./passwordReset.js";
 import { verificationSecret } from "./emailVerification.js";
+import { allowedOrigin, requireBrowserMutation, sessionCookieOptions } from "./cookieSecurity.js";
 
 const app = express();
 const httpServer = createServer(app);
 const lanServer = attachLanServer(httpServer);
 const PORT = Number(process.env.PORT || 3001);
-const allowedOrigins = [
-  "http://localhost:5173",
-  "http://localhost:5174",
-  process.env.CLIENT_URL,
-  ...(process.env.CLIENT_ORIGINS?.split(",").map((origin) => origin.trim()) || []),
-].filter((origin): origin is string => Boolean(origin));
-
-function isPrivateLanOrigin(origin: string) {
-  try {
-    const url = new URL(origin);
-    if (url.protocol !== "http:" || url.port !== "5173") return false;
-
-    const octets = url.hostname.split(".").map(Number);
-    if (octets.length !== 4 || octets.some((octet) => !Number.isInteger(octet) || octet < 0 || octet > 255)) {
-      return false;
-    }
-
-    return (
-      octets[0] === 10 ||
-      (octets[0] === 172 && octets[1] >= 16 && octets[1] <= 31) ||
-      (octets[0] === 192 && octets[1] === 168)
-    );
-  } catch {
-    return false;
-  }
-}
+// Set only trusted proxy addresses/hops for the actual deployment topology.
+const proxy = process.env.TRUST_PROXY;
+if (proxy) app.set("trust proxy", /^\d+$/.test(proxy) ? Number(proxy) : proxy.split(",").map(value => value.trim()));
 
 // Middleware
 app.use(cors({
   origin: (origin, callback) => {
-    callback(null, !origin || allowedOrigins.includes(origin) || isPrivateLanOrigin(origin));
+    callback(null, !origin || allowedOrigin(origin));
   },
   credentials: true,
+  allowedHeaders: ["Content-Type", "X-TypeTiles-Request"],
+  exposedHeaders: ["Retry-After"],
 }));
 app.use(express.json({ limit: "3mb" }));
+app.use("/api", requireBrowserMutation);
 
 // Health check
 app.get("/health", (req, res) => {
@@ -77,6 +58,8 @@ app.use((err: any, req: express.Request, res: express.Response, next: express.Ne
 async function start() {
   try {
     jwtSecret();
+    sessionCookieOptions();
+    if (process.env.NODE_ENV === "production" && !process.env.CLIENT_URL) throw new Error("Production requires CLIENT_URL.");
     resetSecret();
     verificationSecret();
     await initializeDatabase();

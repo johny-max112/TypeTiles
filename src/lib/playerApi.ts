@@ -1,7 +1,7 @@
 import type { PracticeFormat } from "../../server/src/sentenceBank";
 import { getBackendEndpoints } from "./endpoints";
 
-export const PLAYER_TOKEN_KEY = "player_token";
+
 
 export type PlayerUser = {
   id: number;
@@ -140,7 +140,6 @@ export type SubmitMatchResultInput = {
 }
 
 type AuthResponse = {
-  token: string;
   user: PlayerUser;
 };
 
@@ -162,18 +161,20 @@ type MeResponse = {
   stats?: PlayerStats;
 };
 
-async function request<T>(path: string, options: RequestInit = {}, token?: string): Promise<T> {
+async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const response = await fetch(`${getBackendEndpoints().apiUrl}${path}`, {
     ...options,
+    credentials: "include",
     headers: {
       "Content-Type": "application/json",
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      "X-TypeTiles-Request": "1",
       ...options.headers,
     },
   });
 
   const data = (await response.json().catch(() => ({}))) as T & { error?: string; code?: string };
   if (!response.ok) {
+    if (response.status === 401) window.dispatchEvent(new Event("typetiles:session-ended"));
     throw new ApiError(typeof data.error === "string" ? data.error : "Request failed", response.status, typeof data.code === "string" ? data.code : undefined);
   }
 
@@ -222,8 +223,8 @@ export function resetPlayerPassword(email: string, code: string, newPassword: st
   return request("/auth/reset-password", { method: "POST", body: JSON.stringify({ email, code, newPassword }), signal });
 }
 
-export function getCurrentPlayer(token: string): Promise<MeResponse> {
-  return request<MeResponse>("/auth/me", {}, token);
+export function getCurrentPlayer(): Promise<MeResponse> {
+  return request<MeResponse>("/auth/me");
 }
 
 export function updatePlayerProfile(input: { displayName?: string; avatar?: string; background?: string }): Promise<{ user: PlayerUser }> {
@@ -284,10 +285,9 @@ export function getLeaderboard(tier?: string): Promise<{ leaderboard: Leaderboar
 }
 
 export async function authenticatedRequest<T>(path: string, options: RequestInit = {}): Promise<T> {
-  const token = localStorage.getItem(PLAYER_TOKEN_KEY);
-  if (!token) {
-    throw new Error("Authentication required");
-  }
+  return request<T>(path, options);
+}
 
-  return request<T>(path, options, token);
+export function logoutPlayer(): Promise<{ message: string }> {
+  return request("/auth/logout", { method: "POST" });
 }

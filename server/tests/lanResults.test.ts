@@ -1,3 +1,4 @@
+import { socketOptions } from "./cookieFixtures.js";
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { mkdtemp, rm } from "node:fs/promises";
@@ -45,7 +46,7 @@ test("LAN results combine with sentence history and teacher ownership", { timeou
       throw new Error(`Missing ${type} on socket ${index}`);
     };
     for (let i = 0; i < 3; i++) {
-      const socket = new WebSocket(`ws://127.0.0.1:${address.port}/ws`);
+      const socket = new WebSocket(`ws://127.0.0.1:${address.port}/ws`, socketOptions(identities[i].token));
       inboxes.push([]); socket.on("message", (raw) => inboxes[i].push(JSON.parse(raw.toString())));
       sockets.push(socket); await once(socket, "open");
     }
@@ -65,7 +66,7 @@ test("LAN results combine with sentence history and teacher ownership", { timeou
     assert.equal(match.status, "completed"); assert(match.ended_at); assert.equal(match.word_set, "legal");
     const first = await db.get("SELECT * FROM match_participants WHERE match_id = ? AND user_id = ?", match.id, identities[1].id);
     assert.equal(first.error_rate, 10); assert.equal(first.end_reason, "health"); assert.equal(first.position, 1);
-    const request = (path: string, i: number) => fetch(base + path, { headers: { authorization: `Bearer ${identities[i].token}` } });
+    const request = (path: string, i: number) => fetch(base + path, { headers: { cookie: `typetiles_session=${identities[i].token}` } });
     assert.equal((await (await request("/users/history", 2)).json()).history.length, 1);
     assert.equal((await (await request("/teacher/matches", 0)).json()).sessions.length, 1);
     assert.equal((await request(`/teacher/matches/${match.id}`, 3)).status, 404);

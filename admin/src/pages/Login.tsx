@@ -4,7 +4,7 @@ import { Shield } from "lucide-react";
 import { apiClient } from "../api";
 
 interface LoginPageProps {
-  onLogin: (token: string, user: any) => void;
+  onLogin: (user: any) => void;
 }
 
 export default function LoginPage({ onLogin }: LoginPageProps) {
@@ -21,14 +21,15 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
 
     try {
       const response = await apiClient.login(username, password);
-      const { token, user } = response.data;
+      const { user } = response.data;
+      await apiClient.getCurrentUser();
 
       if (user.role !== "admin") {
         setError("You don't have admin access");
         return;
       }
 
-      onLogin(token, user);
+      onLogin(user);
       navigate("/dashboard");
     } catch (err: any) {
       setError(err.response?.data?.error || "Login failed");

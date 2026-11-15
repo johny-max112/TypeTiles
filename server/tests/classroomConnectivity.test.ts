@@ -56,15 +56,15 @@ async function loadComponents(apiUrl?: string) {
 }
 
 function harness(protocol: string, hostname: string) {
-  const values = new Map<string, string>([["player_token", "test-token"]]);
+  const values = new Map<string, string>();
   const h: any = {
-    slots: [], cursor: 0, effects: [], sockets: [], timers: [], navigations: [], requests: [],
+    slots: [], cursor: 0, effects: [], sockets: [], timers: [], navigations: [], requests: [], requestOptions: [],
     storage: { getItem: (key: string) => values.get(key) ?? null,
       setItem: (key: string, value: string) => values.set(key, value), removeItem: (key: string) => values.delete(key) },
     window: { location: { protocol, hostname }, setInterval: () => 1, clearInterval() {}, confirm: () => true },
     navigate: (path: string, options: any) => h.navigations.push({ path, ...options }),
     setTimeout: (callback: () => void) => { h.timers.push(callback); return h.timers.length; }, clearTimeout() {},
-    fetch: async (url: string) => { h.requests.push(url); return { ok: true, json: async () => ({ token: "test-token" }) }; },
+    fetch: async (url: string, options: RequestInit) => { h.requests.push(url); h.requestOptions.push(options); return { ok: true, json: async () => ({ user: { id: 2, role: "student" } }) }; },
     render(component: () => any) {
       h.cursor = 0; h.effects = []; const tree = component(); for (const effect of h.effects) effect(); return tree;
     },
@@ -105,6 +105,9 @@ for (const setup of [
   const h = harness(setup.protocol, setup.hostname); const components = await loadComponents(setup.apiUrl);
   try {
     await components.loginPlayer("student", "test-only"); assert.equal(h.requests[0], `${setup.origin}/api/auth/login`);
+    assert.equal(h.requestOptions[0].credentials, "include");
+    assert.equal(h.requestOptions[0].headers["Authorization"], undefined);
+    assert.equal(h.requestOptions[0].headers["X-TypeTiles-Request"], "1");
     let tree = h.render(components.Lobby);
     assert(!text(tree).toLowerCase().includes("your player name"));
     assert(!text(tree).toLowerCase().includes("host address"));
@@ -117,7 +120,7 @@ for (const setup of [
     assert.equal(h.sockets.length, 1); const lobbySocket = h.sockets[0]; assert.equal(lobbySocket.url, setup.socketUrl);
     lobbySocket.open(); assert.equal(lobbySocket.sent[0].roomCode, "ABCD");
     assert.equal(lobbySocket.sent[0].playerName, undefined);
-    assert.equal(lobbySocket.sent[0].token, "test-token");
+    assert.equal(lobbySocket.sent[0].token, undefined); // Authentication is the handshake cookie, never a JSON token.
     const state = { type: "room_state", roomCode: "ABCD", started: false, maxPlayers: 51, maxStudents: 50, studentCount: 1,
       matchConfig: config, players: [{ id: "student", userId: 2, name: "student", isHost: false, ready: true }] };
     lobbySocket.message(state); h.render(components.Lobby);

@@ -1,3 +1,4 @@
+import { socketOptions } from "./cookieFixtures.js";
 import assert from "node:assert/strict";
 import { once } from "node:events";
 import { WebSocket } from "ws";
@@ -17,13 +18,13 @@ export async function authorizationChecks(db: ApplicationDatabase, base: string,
   }
   const request = async (path: string, index: number, method = "GET", body?: object) => {
     const response = await fetch(base + path, { method,
-      headers: { authorization: `Bearer ${accounts[index].token}`, "content-type": "application/json" },
+      headers: { cookie: `typetiles_session=${accounts[index].token}`, "Content-Type": "application/json", Origin: "http://localhost:5173", "X-TypeTiles-Request": "1" },
       ...(body ? { body: JSON.stringify(body) } : {}),
     });
-    return { status: response.status, body: await response.json() };
+    return { status: response.status, body: await response.json(), sessionToken: response.headers.get("set-cookie")?.match(/(?:^|,\s*)typetiles_session=([^;]+)/)?.[1] };
   };
-  const open = async () => {
-    const socket = new WebSocket(wsUrl); sockets.push(socket);
+  const open = async (token?: string) => {
+    const socket = new WebSocket(wsUrl, socketOptions(token)); sockets.push(socket);
     const inbox: any[] = [];
     socket.on("message", raw => inbox.push(JSON.parse(raw.toString())));
     await once(socket, "open");
@@ -38,7 +39,7 @@ export async function authorizationChecks(db: ApplicationDatabase, base: string,
       },
     };
   };
-  const host = await open();
+  const host = await open(accounts[0].token);
   host.send({ type: "create_room", token: accounts[0].token, ownerUserId: accounts[1].id, wordSet: "General", roundTime: 30 });
   const { roomCode } = await host.wait("room_created");
   const match = await db.get("SELECT * FROM matches WHERE owner_user_id = ?", accounts[0].id);
@@ -53,14 +54,14 @@ export async function authorizationChecks(db: ApplicationDatabase, base: string,
   assert.equal((await request(`/teacher/matches/${match.id}`, 2)).status, 403);
   assert.equal((await request(`/teacher/matches/${match.id}`, 4)).status, 403);
 
-  const unverified = await open();
+  const unverified = await open(accounts[5].token);
   unverified.send({ type: "create_room", token: accounts[5].token });
   await unverified.wait("error", message => /Authentication/.test(message.message));
   unverified.send({ type: "join_room", token: accounts[5].token, roomCode });
   await unverified.wait("error", message => /Authentication/.test(message.message));
   assert.equal((await request(`/matches/${match.id}`, 5)).status, 401);
 
-  const student = await open();
+  const student = await open(accounts[2].token);
   student.send({ type: "create_room", token: accounts[2].token });
   await student.wait("error", message => /Only teachers/.test(message.message));
   student.send({ type: "join_room", token: accounts[2].token, roomCode });
@@ -100,7 +101,7 @@ export async function authorizationChecks(db: ApplicationDatabase, base: string,
   await host.wait("error", message => /Only the teacher/.test(message.message));
   host.send({ type: "cancel_room", token: accounts[0].token });
   await host.wait("error", message => /Only the teacher/.test(message.message));
-  const reconnect = await open();
+  const reconnect = await open(accounts[0].token);
   reconnect.send({ type: "join_room", token: accounts[0].token, roomCode });
   await reconnect.wait("error", message => message.code === "ROLE_NOT_ALLOWED");
   assert.equal((await request(`/teacher/matches/${match.id}`, 0)).status, 403);
@@ -111,7 +112,7 @@ export async function authorizationChecks(db: ApplicationDatabase, base: string,
   reconnect.send({ type: "join_room", token: accounts[0].token, roomCode }); await reconnect.wait("room_joined");
   reconnect.send({ type: "update_match_config", wordSet: "Legal" });
   await reconnect.wait("room_state", message => message.matchConfig.wordSet === "legal");
-  const studentReconnect = await open();
+  const studentReconnect = await open(accounts[2].token);
   studentReconnect.send({ type: "join_room", token: accounts[2].token, roomCode }); await studentReconnect.wait("room_joined");
   studentReconnect.send({ type: "ready" });
   await reconnect.wait("room_state", message => message.players.some((player: any) => player.userId === accounts[2].id && player.ready));

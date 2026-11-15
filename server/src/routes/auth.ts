@@ -1,13 +1,18 @@
 import { Router, Request, Response } from "express";
 import { getDatabase } from "../db.js";
-import { verifyPassword, generateToken, normalizeRole } from "../auth.js";
+import { verifyPassword, generateToken, normalizeRole, hashPassword } from "../auth.js";
 import { authMiddleware } from "../middleware.js";
 import { createPasswordResetRouter } from "./passwordReset.js";
 import { EmailVerificationService, RegistrationError } from "../emailVerification.js";
 import { createEmailVerificationRouter } from "./emailVerification.js";
+import { clearSessionCookie, requireBrowserMutation, setSessionCookie } from "../cookieSecurity.js";
+import { LoginLimiter, rejectThrottled } from "../loginLimiter.js";
+import { sessionEvents } from "../sessionEvents.js";
 
-export function createAuthRouter(verification = new EmailVerificationService()) {
+export function createAuthRouter(verification = new EmailVerificationService(), limiter = new LoginLimiter()) {
 const router = Router();
+const dummyHash = hashPassword("TypeTiles-nonexistent-account-timing-only");
+router.use(requireBrowserMutation);
 router.use(createPasswordResetRouter());
 router.use(createEmailVerificationRouter(verification));
 
@@ -49,13 +54,17 @@ router.post("/register", async (req: Request<{}, {}, RegisterBody>, res: Respons
 
 // Login
 router.post("/login", async (req: Request<{}, {}, LoginBody>, res: Response) => {
+  res.set("Cache-Control", "no-store");
+  let attempt: ReturnType<LoginLimiter["reserve"]> | undefined;
   try {
     const { username, password } = req.body ?? {};
 
-    if (typeof username !== "string" || typeof password !== "string" || !username || !password) {
+    if (typeof username !== "string" || typeof password !== "string" || !username || !password || username.length > 256 || Buffer.byteLength(password, "utf8") > 72) {
       return res.status(400).json({ error: "Missing username or password" });
     }
 
+    attempt = limiter.reserve(req.ip || req.socket.remoteAddress || "unknown", username);
+    if (attempt.retryAfter) return rejectThrottled(res, attempt.retryAfter);
     const db = getDatabase();
 
     const user = await db.get(
@@ -64,11 +73,8 @@ router.post("/login", async (req: Request<{}, {}, LoginBody>, res: Response) => 
     );
 
     if (!user) {
+      await verifyPassword(password, await dummyHash);
       return res.status(401).json({ error: "Invalid username or password" });
-    }
-
-    if (user.is_banned) {
-      return res.status(403).json({ error: "This account has been banned" });
     }
 
     const passwordValid = await verifyPassword(password, user.password_hash);
@@ -76,6 +82,8 @@ router.post("/login", async (req: Request<{}, {}, LoginBody>, res: Response) => 
     if (!passwordValid) {
       return res.status(401).json({ error: "Invalid username or password" });
     }
+
+    if (user.is_banned) return res.status(401).json({ error: "Invalid username or password" });
 
     if (user.email_verified !== 1) {
       return res.status(403).json({ error: "Verify your email before logging in.", code: "EMAIL_VERIFICATION_REQUIRED" });
@@ -88,8 +96,9 @@ router.post("/login", async (req: Request<{}, {}, LoginBody>, res: Response) => 
       sessionVersion: user.session_version,
     });
 
+    setSessionCookie(res, token);
+    attempt.finish(true);
     res.json({
-      token,
       user: {
         id: user.id,
         username: user.username,
@@ -105,6 +114,16 @@ router.post("/login", async (req: Request<{}, {}, LoginBody>, res: Response) => 
     console.error("Login error:", error);
     res.status(500).json({ error: "Internal server error" });
   }
+});
+
+// Logout is intentionally global: revoke every previously issued session for this user.
+router.post("/logout", authMiddleware, async (req: Request, res: Response, next) => {
+  try {
+    await getDatabase().run("UPDATE users SET session_version = session_version + 1 WHERE id = ?", [req.user!.userId]);
+    sessionEvents.emit("invalidate", req.user!.userId);
+    clearSessionCookie(res);
+    res.json({ message: "Logged out on all devices." });
+  } catch (error) { next(error); }
 });
 
 // Get current user
