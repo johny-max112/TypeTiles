@@ -1,6 +1,6 @@
 import { useState } from "react";
 import type { FormEvent } from "react";
-import { Dices } from "lucide-react";
+import { Dices, Eye, EyeOff } from "lucide-react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { usePlayerAuth } from "../lib/PlayerAuthContext";
 import { HudBackground } from "./HudBackground";
@@ -16,6 +16,7 @@ export default function PlayerAuth() {
   const [email, setEmail] = useState("");
   const [displayName, setDisplayName] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [registrationRole, setRegistrationRole] = useState<RegistrationRole>("student");
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -101,10 +102,17 @@ export default function PlayerAuth() {
             </>
           ) : null}
 
-          <label className="block text-sm text-white/80">
-            Password
-            <input required minLength={6} type="password" value={password} onChange={(event) => setPassword(event.target.value)} className="mt-2 h-12 w-full rounded-[10px] border border-white/10 bg-[#f4f3f8] px-3 text-slate-900 outline-none focus:border-[#6a9eff] focus:ring-2 focus:ring-[#6a9eff]/30" autoComplete={isRegister ? "new-password" : "current-password"} />
-          </label>
+          <div className="text-sm text-white/80">
+            <label htmlFor="player-password">Password</label>
+            <div className="relative mt-2">
+              <input id="player-password" required minLength={6} type={!isRegister && showPassword ? "text" : "password"} value={password} onChange={(event) => setPassword(event.target.value)} className={`h-12 w-full rounded-[10px] border border-white/10 bg-[#f4f3f8] px-3 text-slate-900 outline-none focus:border-[#6a9eff] focus:ring-2 focus:ring-[#6a9eff]/30 ${!isRegister ? "pr-12" : ""}`} autoComplete={isRegister ? "new-password" : "current-password"} />
+              {!isRegister && (
+                <button type="button" onClick={() => setShowPassword((visible) => !visible)} aria-label={showPassword ? "Hide password" : "Show password"} aria-pressed={showPassword} aria-controls="player-password" className="absolute inset-y-0 right-0 flex w-12 items-center justify-center rounded-r-[10px] text-slate-600 hover:text-slate-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#6a9eff]">
+                  {showPassword ? <EyeOff className="h-5 w-5" aria-hidden="true" /> : <Eye className="h-5 w-5" aria-hidden="true" />}
+                </button>
+              )}
+            </div>
+          </div>
 
           {!isRegister ? <div className="text-right"><Link to="/forgot-password" className="text-sm text-[#8db0ff] hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4">Forgot Password?</Link></div> : null}
 
