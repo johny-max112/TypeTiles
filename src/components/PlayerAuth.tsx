@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
-import { Dices, Eye, EyeOff } from "lucide-react";
+import { Dices, Eye, EyeOff, LoaderCircle } from "lucide-react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { usePlayerAuth } from "../lib/PlayerAuthContext";
 import { HudBackground } from "./HudBackground";
@@ -20,10 +20,19 @@ export default function PlayerAuth() {
   const [registrationRole, setRegistrationRole] = useState<RegistrationRole>("student");
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [slowLogin, setSlowLogin] = useState(false);
   const [verificationRequired, setVerificationRequired] = useState(false);
+
+  useEffect(() => {
+    setSlowLogin(false);
+    if (!submitting || isRegister) return;
+    const timer = window.setTimeout(() => setSlowLogin(true), 3000);
+    return () => window.clearTimeout(timer);
+  }, [submitting, isRegister]);
 
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (submitting) return;
     setError("");
     setVerificationRequired(false);
     setSubmitting(true);
@@ -119,9 +128,11 @@ export default function PlayerAuth() {
           {error ? <p className="text-sm text-red-300" role="alert">{error}</p> : null}
           {!isRegister && verificationRequired ? <Link to="/verify-email" className="inline-block text-sm text-[#8db0ff] hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4">Verify your email</Link> : null}
 
-          <button type="submit" disabled={submitting} className="w-full rounded-[10px] bg-[#454ec3] px-6 py-3 font-semibold text-white transition hover:brightness-110 disabled:cursor-wait disabled:opacity-60">
-            {submitting ? "Working..." : isRegister ? "Create account" : "Log in"}
+          <button type="submit" disabled={submitting} aria-busy={submitting} className="flex w-full items-center justify-center gap-2 rounded-[10px] bg-[#454ec3] px-6 py-3 font-semibold text-white transition hover:brightness-110 disabled:cursor-wait disabled:opacity-60">
+            {submitting && !isRegister ? <LoaderCircle className="h-5 w-5 animate-spin motion-reduce:animate-none" aria-hidden="true" /> : null}
+            {submitting ? isRegister ? "Working..." : "Signing in..." : isRegister ? "Create account" : "Log in"}
           </button>
+          {!isRegister ? <p role="status" aria-live="polite" className="text-center text-sm text-white/70">{submitting && slowLogin ? "Connecting to the server. This may take a moment." : ""}</p> : null}
         </form>
 
         <div className="mt-5 flex items-center justify-between gap-3 text-sm text-white/70">
