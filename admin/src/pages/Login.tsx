@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Shield } from "lucide-react";
+import { Shield, Eye, EyeOff, LoaderCircle } from "lucide-react";
 import { apiClient } from "../api";
+import "./Login.css";
 
 interface LoginPageProps {
   onLogin: (user: any) => void;
@@ -13,9 +14,11 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isLoading) return;
     setError("");
     setIsLoading(true);
 
@@ -39,65 +42,41 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
   };
 
   return (
-    <div className="min-h-screen bg-gray-900 flex items-center justify-center">
-      <div className="w-full max-w-md">
-        <div className="bg-gray-800 rounded-lg shadow-xl p-8 border border-gray-700">
-          <div className="flex items-center justify-center gap-3 mb-8">
-            <Shield className="w-8 h-8 text-blue-400" />
-            <h1 className="text-2xl font-bold text-white">Admin Login</h1>
+    <main className="admin-signin">
+      <section className="admin-signin-card" aria-labelledby="admin-login-title">
+        <header className="admin-signin-header">
+          <div className="admin-signin-brand"><Shield size={22} aria-hidden="true" /><span>Type<span className="admin-brand-accent">Tiles</span></span></div>
+          <h1 id="admin-login-title">Admin login</h1>
+          <p>Sign in with your administrator account.</p>
+        </header>
+        {error && <div className="admin-signin-error" role="alert">{error}</div>}
+        <form onSubmit={handleSubmit} className="admin-signin-form" aria-busy={isLoading}>
+          <div>
+            <label htmlFor="admin-username">Username</label>
+            <div className="admin-signin-input">
+              <input id="admin-username" name="username" type="text" autoComplete="username" value={username}
+                onChange={(e) => setUsername(e.target.value)} placeholder="Enter your username" required disabled={isLoading} />
+            </div>
           </div>
-
-          {error && (
-            <div className="mb-4 p-4 bg-red-900/20 border border-red-700 rounded text-red-300">
-              {error}
+          <div>
+            <label htmlFor="admin-password">Password</label>
+            <div className="admin-signin-input">
+              <input id="admin-password" name="password" type={showPassword ? "text" : "password"} autoComplete="current-password"
+                value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Enter your password" required disabled={isLoading} />
+              <button type="button" className="admin-password-toggle" aria-label={showPassword ? "Hide password" : "Show password"}
+                aria-pressed={showPassword} aria-controls="admin-password" onClick={() => setShowPassword(!showPassword)}>
+                {showPassword ? <EyeOff size={19} /> : <Eye size={19} />}
+              </button>
             </div>
-          )}
-
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">Username</label>
-              <input
-                type="text"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded text-white placeholder-gray-400 focus:outline-none focus:border-blue-500"
-                placeholder="Admin username"
-                required
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">Password</label>
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded text-white placeholder-gray-400 focus:outline-none focus:border-blue-500"
-                placeholder="••••••••"
-                required
-              />
-            </div>
-
-            <button
-              type="submit"
-              disabled={isLoading}
-              className="w-full py-2 px-4 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 text-white font-medium rounded transition"
-            >
-              {isLoading ? "Logging in..." : "Login"}
-            </button>
-          </form>
-
-          <div className="mt-6 p-4 bg-blue-900/20 border border-blue-700 rounded">
-            <p className="text-sm text-blue-300">
-              <strong>Demo Credentials:</strong>
-              <br />
-              Username: admin
-              <br />
-              Password: admin123
-            </p>
           </div>
-        </div>
-      </div>
-    </div>
+          <button type="submit" disabled={isLoading} className="admin-signin-submit">
+            {isLoading ? <><LoaderCircle className="admin-signin-spinner" size={19} aria-hidden="true" /> Signing in...</> : "Log in"}
+          </button>
+          <div className="admin-signin-status" role="status" aria-live="polite">
+            {isLoading ? "Connecting to the server. Please wait." : ""}
+          </div>
+        </form>
+      </section>
+    </main>
   );
 }

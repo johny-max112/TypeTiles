@@ -1,0 +1,43 @@
+.admin-signin {
+  min-height: 100vh;
+  min-height: 100svh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 32px 20px;
+  color: #edf0f7;
+  background: #111827;
+}
+.admin-signin-card {
+  width: 100%;
+  max-width: 430px;
+  padding: 36px;
+  border: 1px solid #303b50;
+  border-radius: 10px;
+  background: #1b2435;
+}
+.admin-signin-header { text-align: center; }
+.admin-signin-brand { display: flex; align-items: center; justify-content: center; gap: 9px; font-size: 28px; font-weight: 750; }
+.admin-signin-brand > svg { color: #8da9e8; }
+.admin-brand-accent { color: #8da9e8; }
+.admin-signin-header h1 { margin: 24px 0 8px; font-size: 21px; font-weight: 600; }
+.admin-signin-header p { color: #adb7c9; font-size: 14px; line-height: 1.5; }
+.admin-signin-form { margin-top: 28px; display: grid; gap: 20px; }
+.admin-signin-form label { display: block; margin-bottom: 8px; font-size: 14px; font-weight: 500; color: #d6dce8; }
+.admin-signin-input { display: flex; align-items: center; padding: 0 12px; border: 1px solid #49546a; border-radius: 6px; background: #111827; }
+.admin-signin-input:focus-within { border-color: #94a8ed; outline: 2px solid #94a8ed33; outline-offset: 1px; }
+.admin-signin-input input { width: 100%; min-width: 0; height: 48px; background: transparent; color: #edf0f7; border: 0; outline: 0; font-size: 16px; }
+.admin-signin-input input::placeholder { color: #8d98ab; font-size: 14px; }
+.admin-password-toggle { display: grid; place-items: center; flex-shrink: 0; min-width: 36px; min-height: 44px; color: #adb7c9; border-radius: 4px; }
+.admin-password-toggle:hover { color: #fff; }
+.admin-password-toggle:focus-visible, .admin-signin-submit:focus-visible { outline: 2px solid #b6c4ff; outline-offset: 4px; }
+.admin-signin-submit { display: flex; align-items: center; justify-content: center; gap: 9px; min-height: 48px; margin-top: 4px; border-radius: 6px; background: #565cc3; color: #fff; font-size: 15px; font-weight: 600; }
+.admin-signin-submit:hover { background: #646bd0; }
+.admin-signin-submit:disabled { opacity: .65; cursor: wait; }
+.admin-signin-input input:disabled { opacity: .65; }
+.admin-signin-status { min-height: 18px; margin-top: -8px; font-size: 12px; text-align: center; color: #adb7c9; }
+.admin-signin-error { margin-top: 22px; padding: 12px; border: 1px solid #8d4d59; border-radius: 6px; background: #402a35; color: #ffc2cb; font-size: 14px; overflow-wrap: anywhere; }
+.admin-signin-spinner { animation: admin-signin-spin 1s linear infinite; }
+@keyframes admin-signin-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .admin-signin-spinner { animation: none; } }
+@media (max-width: 480px) { .admin-signin { padding: 24px 16px; } .admin-signin-card { padding: 28px 22px; } }
