@@ -28,6 +28,7 @@ import { userDeletionChecks } from "./userDeletionChecks.js";
 import { resultIntegrityChecks } from "./resultIntegrityChecks.js";
 import { teacherProgressChecks } from "./teacherProgressChecks.js";
 import { classroomReliabilityChecks } from "./classroomReliabilityChecks.js";
+import { adminDashboardChecks } from "./adminDashboardChecks.js";
 
 test("classroom ownership migration preserves legacy accounts/results and is idempotent", async () => {
   const engine = new PGlite();
@@ -168,6 +169,7 @@ test("PostgreSQL engine: registration, recovery, Solo/history, admin and LAN per
       const adminId = (await db.run("INSERT INTO users(username,email,password_hash,display_name,role,email_verified) VALUES(?,?,?,?,?,1)", "pg-admin", "pg-admin@example.test", "unused-test-only", "Admin", "admin")).lastID!;
       const adminToken = generateToken({ userId: adminId, username: "pg-admin", role: "admin" });
       const stats = await request("/admin/dashboard/stats", undefined, adminToken); assert.equal(stats.status, 200); assert.equal(stats.body.totalUsers, 2);
+      await adminDashboardChecks(db, base);
       const search = await request("/admin/users?search=PG-STUDENT", undefined, adminToken); assert.equal(search.body.users.length, 1);
       assert.equal((await request("/feedback", { message: "Postgres feedback" }, token)).status, 201);
     });

@@ -2,6 +2,7 @@ import { Router, Request, Response } from "express";
 import { getDatabase, databaseTransaction } from "../db.js";
 import { authMiddleware, adminMiddleware } from "../middleware.js";
 import { sessionEvents } from "../sessionEvents.js";
+import { PostgresDatabase } from "../postgresDatabase.js";
 
 const router = Router();
 
@@ -122,25 +123,39 @@ router.get("/dashboard/stats", async (req: Request, res: Response) => {
 
     const totalUsers = await db.get(`SELECT COUNT(*) as count FROM users`);
     const totalMatches = await db.get(`SELECT COUNT(*) as count FROM matches`);
-    const activePlayers = await db.get(
-      `SELECT COUNT(DISTINCT user_id) as count FROM match_participants 
-       WHERE match_id IN (SELECT id FROM matches WHERE status = 'active')`
+    // Match creation is the available historical timestamp, not an online heartbeat.
+    const generatedAt = new Date();
+    const cutoff = new Date(generatedAt.getTime() - 24 * 60 * 60 * 1000).toISOString();
+    // SQLite accepts both legacy ISO strings and its default SQL timestamp format.
+    const recentMatch = db instanceof PostgresDatabase
+      ? "m.created_at >= ? AND m.created_at <= ?"
+      : "julianday(m.created_at) >= julianday(?) AND julianday(m.created_at) <= julianday(?)";
+    const recentPlayers = await db.get(
+      `SELECT COUNT(DISTINCT p.user_id) as count FROM match_participants p
+       JOIN matches m ON m.id = p.match_id JOIN users u ON u.id = p.user_id
+       WHERE ${recentMatch} AND u.is_banned = 0`, cutoff, generatedAt.toISOString()
     );
+    const matchStatuses = await db.get(`SELECT
+      COUNT(CASE WHEN status = 'completed' THEN 1 END) AS completed,
+      COUNT(CASE WHEN status = 'cancelled' THEN 1 END) AS cancelled FROM matches`);
     const bannedUsers = await db.get(`SELECT COUNT(*) as count FROM users WHERE is_banned = 1`);
 
     const topPlayers = await db.all(
-      `SELECT u.username, u.display_name, us.total_score, us.best_wpm, us.avg_accuracy
+      `SELECT u.id, u.username, u.display_name, us.total_score, us.best_wpm, us.avg_accuracy, us.games_played
        FROM users u
        JOIN user_stats us ON u.id = us.user_id
-       WHERE u.is_banned = 0
-       ORDER BY us.total_score DESC
+       WHERE u.is_banned = 0 AND us.games_played > 0
+       ORDER BY us.total_score DESC, u.id ASC
        LIMIT 10`
     );
 
     res.json({
       totalUsers: totalUsers?.count || 0,
       totalMatches: totalMatches?.count || 0,
-      activePlayers: activePlayers?.count || 0,
+      recentPlayers: recentPlayers?.count || 0,
+      completedMatches: matchStatuses?.completed || 0,
+      cancelledMatches: matchStatuses?.cancelled || 0,
+      generatedAt: generatedAt.toISOString(),
       bannedUsers: bannedUsers?.count || 0,
       topPlayers,
     });
