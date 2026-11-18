@@ -226,6 +226,8 @@ test("50 concurrent classroom students plus teacher: capacity, reconnects, ranks
       assert.equal((await (await get("/users/history", joined[0])).json()).history.length, 1);
       const late = await open(joined[0]); late.send({ type: "join_room", roomCode, token: identities[joined[0]].token }); await late.wait("room_joined");
       assert.equal((await late.wait("classroom_results")).players.length, 50);
+      assert.equal((late.counts.get("room_started") || 0), 0, "Completed room reconnect must not replay match start");
+      assert.equal(late.messages.find(message => message.type === "room_state")?.completed, true);
       for (const peer of peers) peer.socket.terminate();
       await new Promise<void>(resolve => lan.close(() => resolve()));
       await closeDatabase(); const reopened = await initializeDatabase();

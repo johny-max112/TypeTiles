@@ -13,7 +13,7 @@ import {
 import { usePlayerAuth } from "../lib/PlayerAuthContext";
 import { getProfileBackground } from "../lib/profileAssets";
 import type { ClassroomRankUpdate, ClassroomStanding } from "../lib/classroomTypes";
-import { getBackendEndpoints } from "../lib/endpoints";
+import { getBackendEndpoints, CLASSROOM_ROOM_KEY, CLASSROOM_ENDPOINT_KEY } from "../lib/endpoints";
 
 type ClassroomResult = ClassroomStanding;
 
@@ -273,6 +273,9 @@ export default function Game({
   };
 
   const backToLobby = () => {
+    // This is an intentional exit, not a transport reconnect into the old match.
+    localStorage.removeItem(CLASSROOM_ROOM_KEY);
+    localStorage.removeItem(CLASSROOM_ENDPOINT_KEY);
     if (
       socketRef.current?.readyState ===
       WebSocket.OPEN

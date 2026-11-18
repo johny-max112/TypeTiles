@@ -151,6 +151,48 @@ for (const setup of [
   } finally { h.unmount(); delete (globalThis as any).__endpointHarness; }
 });
 
+test("Back to Lobby after results exits the saved classroom without restoring or relaunching it", async () => {
+  const h = harness("https:", "playtypetiles.com");
+  const components = await loadComponents("https://api.playtypetiles.com/api");
+  const props = { mode: "multiplayer", roomCode: "DONE", hostAddress: "https://api.playtypetiles.com", matchConfig: config };
+  try {
+    h.storage.setItem(CLASSROOM_ROOM_KEY, "DONE"); h.storage.setItem(CLASSROOM_ENDPOINT_KEY, props.hostAddress);
+    h.render(() => components.Game(props)); const socket = h.sockets[0]; socket.open();
+    socket.message({ type: "classroom_results", players: [] });
+    const tree = h.render(() => components.Game(props));
+    const back = nodes(tree).find(node => node.type === "button" && text(node).includes("Back to Lobby"));
+    assert(back); back.props.onClick();
+    assert.equal(h.storage.getItem(CLASSROOM_ROOM_KEY), null);
+    assert.equal(h.storage.getItem(CLASSROOM_ENDPOINT_KEY), null);
+    assert.equal(socket.sent.at(-1).type, "leave_room");
+    assert.equal(h.navigations.at(-1).path, "/app/lobby");
+    h.unmount(); const count = h.sockets.length;
+    h.render(components.Lobby); h.render(components.Lobby);
+    assert.equal(h.sockets.length, count, "Returning to lobby must not autojoin the completed room");
+    assert.equal(h.navigations.filter((route: any) => route.path === "/app/game").length, 0);
+  } finally { h.unmount(); delete (globalThis as any).__endpointHarness; }
+});
+
+test("completed room state and final results prevent game relaunch even if a start event is replayed", async () => {
+  for (const completedFlag of [true, undefined]) {
+    const h = harness("https:", "playtypetiles.com"); const components = await loadComponents("https://api.playtypetiles.com/api");
+    try {
+      h.storage.setItem(CLASSROOM_ROOM_KEY, "DONE"); h.storage.setItem(CLASSROOM_ENDPOINT_KEY, "https://api.playtypetiles.com");
+      h.render(components.Lobby); const socket = h.sockets[0]; socket.open();
+      socket.message({ type: "room_state", roomCode: "DONE", started: true, completed: completedFlag,
+        startAt: Date.now() - 10_000, matchConfig: config, players: [] });
+      if (completedFlag) {
+        socket.message({ type: "room_started", matchConfig: config, wordSequence: ["Already finished."], startAt: Date.now() - 10_000 });
+        h.render(components.Lobby); assert.equal(h.navigations.length, 0);
+      }
+      socket.message({ type: "classroom_results", players: [] });
+      socket.message({ type: "room_started", matchConfig: config, wordSequence: ["Already finished."], startAt: Date.now() - 10_000 });
+      h.render(components.Lobby); h.render(components.Lobby);
+      assert.equal(h.navigations.length, 0, "Final results must not route back into Phaser");
+    } finally { h.unmount(); delete (globalThis as any).__endpointHarness; }
+  }
+});
+
 test("components reject a different classroom backend without opening a socket or masking the error", async () => {
   const h = harness("https:", "playtypetiles.com"); const components = await loadComponents("https://typetiles.onrender.com/api");
   try {

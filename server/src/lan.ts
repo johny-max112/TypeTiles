@@ -101,6 +101,7 @@ function roomState(room: Room) {
     matchConfig: room.matchConfig,
     startAt: room.startAt,
     started: room.started,
+    completed: room.classroomResultsSent,
     maxPlayers: room.maxStudents + 1,
     maxStudents: room.maxStudents,
     studentCount: room.students.size,
@@ -583,7 +584,7 @@ export function attachLanServer(server: import("http").Server,
           if (socket.readyState !== WebSocket.OPEN || room.players.get(player.id) !== player) return;
           send(socket, { type: "room_joined", roomCode: room.code, playerId: player.id });
           broadcast(room);
-          if (room.started) {
+          if (room.started && !room.classroomResultsSent) {
             send(socket, { type: "room_started", roomCode: room.code,
               matchConfig: room.matchConfig, wordSequence: room.wordSequence, startAt: room.startAt });
             queueStandings(room);

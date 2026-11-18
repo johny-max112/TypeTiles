@@ -31,6 +31,7 @@ type ClassroomMatchConfig = Omit<ServerClassroomMatchConfig, "background"> & {
 type RoomState = {
   roomCode: string;
   started: boolean;
+  completed?: boolean;
   startAt?: number;
   maxPlayers: number;
   maxStudents?: number;
@@ -156,6 +157,7 @@ export default function Lobby() {
 
       if (message.type === "classroom_results") {
         setClassroomResults(message.players || []);
+        setError("");
       }
 
       if (
@@ -279,7 +281,7 @@ export default function Lobby() {
    *   enters Phaser through /app/game.
    */
   useEffect(() => {
-    if (!room?.started || !room.startAt) return;
+    if (!room?.started || !room.startAt || room.completed || classroomResults !== null) return;
 
     if (wordSequence.length === 0) {
       setError(
@@ -334,6 +336,8 @@ export default function Lobby() {
     room?.roomCode,
     room?.startAt,
     room?.started,
+    room?.completed,
+    classroomResults,
     room?.matchConfig,
     user?.role,
     wordSequence,
