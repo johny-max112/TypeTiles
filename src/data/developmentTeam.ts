@@ -25,8 +25,8 @@ export const developmentTeam = [
     "description": "Coordinates the team's work and supports application development, collaborating with the lead developer on implementation and project delivery."
   },
   {
-    "id": "jacqueline-de-vera",
-    "name": "Jacqueline De Vera",
+    "id": "jacquelyn-de-vera",
+    "name": "Jacquelyn De Vera",
     "role": "Documentation Specialist, Software Tester, and Quality Assurance Coordinator",
     "description": "Contributes to the project manuscript and system documentation, tests application features, and coordinates issue tracking and verification to help maintain system quality."
   }
