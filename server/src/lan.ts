@@ -15,7 +15,7 @@ const STANDINGS_INTERVAL_MS = 250;
 const COUNTDOWN_DELAY_MS = 3000;
 
 type ClientMessage = {
-  type: "create_room" | "join_room" | "leave_room" | "cancel_room" | "update_match_config" | "ready" | "start_game" | "score_update";
+  type: "create_room" | "join_room" | "leave_room" | "cancel_room" | "update_match_config" | "ready" | "start_game" | "score_update" | "partner_pov_update";
   roomCode?: string;
   ticket?: string;
   playerName?: string;
@@ -32,6 +32,13 @@ type ClientMessage = {
   background?: string;
   practiceFormat?: string;
   greggSubmode?: string;
+  customDeckId?: number | null;
+  target?: string;
+  typedPrefix?: string;
+  tileX?: number;
+  tileY?: number;
+  remainingTime?: number;
+  status?: "playing" | "paused" | "completed";
 };
 
 type Player = {
@@ -57,6 +64,22 @@ type PlayerPerformance = {
   finished: boolean;
 };
 
+type PartnerPovState = {
+  userId: number;
+  displayName: string;
+  target: string;
+  typedPrefix: string;
+  tileX: number;
+  tileY: number;
+  lives: number;
+  score: number;
+  wpm: number;
+  accuracy: number;
+  remainingTime: number;
+  completedWords: number;
+  status: "playing" | "paused" | "completed" | "disconnected";
+};
+
 type Room = {
   code: string;
   dbMatchId?: number;
@@ -80,6 +103,8 @@ type Room = {
   finalization?: Promise<void>;
   writeQueue?: Promise<void>;
   closing?: boolean;
+  partnerByUserId: Map<number, number>;
+  partnerStates: Map<number, PartnerPovState>;
 };
 
 const rooms = new Map<string, Room>();
@@ -167,6 +192,79 @@ function getStudentResults(room: Room) {
     }))
     .sort(compareClassroomResults)
     .map((result, index) => ({ ...result, rank: index + 1 }));
+}
+
+export function buildPartnerPairs(userIds: number[]): Map<number, number> {
+  const pairs = new Map<number, number>();
+  for (let index = 0; index + 1 < userIds.length; index += 2) {
+    pairs.set(userIds[index], userIds[index + 1]);
+    pairs.set(userIds[index + 1], userIds[index]);
+  }
+  return pairs;
+}
+
+function partnerAssignment(room: Room, userId: number) {
+  const partnerId = room.partnerByUserId.get(userId);
+  if (!partnerId) return null;
+  const partner = room.students.get(partnerId);
+  if (!partner) return null;
+  return {
+    userId: partnerId,
+    displayName: partner.displayName || partner.name,
+  };
+}
+
+function sendPartnerAssignment(room: Room, student: Player) {
+  if (!student.userId) return;
+  send(student.socket, {
+    type: "partner_assignment",
+    partner: partnerAssignment(room, student.userId),
+  });
+  if (room.partnerStates.has(student.userId)) {
+    const partnerId = room.partnerByUserId.get(student.userId);
+    if (partnerId) {
+      const state = room.partnerStates.get(partnerId);
+      if (state) send(student.socket, { type: "partner_pov_update", state });
+    }
+  }
+}
+
+function forwardPartnerStatus(room: Room, player: Player, status: "disconnected" | "playing") {
+  if (room.classroomResultsSent || !player.userId || !room.partnerByUserId.has(player.userId)) return;
+  const partnerId = room.partnerByUserId.get(player.userId);
+  const partner = partnerId ? room.students.get(partnerId) : undefined;
+  if (!partnerId || !partner) return;
+  const previous = room.partnerStates.get(player.userId);
+  if (status === "disconnected") {
+    const disconnected: PartnerPovState = previous
+      ? { ...previous, status: "disconnected" }
+      : {
+          userId: player.userId,
+          displayName: player.displayName || player.name,
+          target: "",
+          typedPrefix: "",
+          tileX: 0,
+          tileY: 0,
+          lives: player.performance?.lives ?? 3,
+          score: player.performance?.score ?? 0,
+          wpm: player.performance?.wpm ?? 0,
+          accuracy: player.performance?.accuracy ?? 0,
+          remainingTime: room.roundTime,
+          completedWords: player.performance?.completedWords ?? 0,
+          status: "disconnected",
+        };
+    room.partnerStates.set(player.userId, disconnected);
+  }
+  if (status === "playing") {
+    const current = room.partnerStates.get(player.userId);
+    if (current?.status === "disconnected") {
+      room.partnerStates.set(player.userId, { ...current, status: "playing" as const });
+    }
+  }
+  const state = room.partnerStates.get(player.userId);
+  if (partner.socket.readyState === WebSocket.OPEN && state) {
+    send(partner.socket, { type: "partner_pov_update", state });
+  }
 }
 
 function serializeRoomWrite<T>(room: Room, operation: () => Promise<T>): Promise<T> {
@@ -272,8 +370,8 @@ function makeRoomCode() {
 async function createDatabaseMatch(message: ClientMessage, ownerUserId: number) {
   const db = getDatabase();
   const result = await db.run(
-    `INSERT INTO matches (mode, difficulty, round_time, word_set, background, status, practice_format, owner_user_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-    [message.mode || "LAN Match", message.difficulty || "Normal", message.roundTime || 90, message.wordSet || "General", message.background || "blues", "active", message.practiceFormat ?? "word-phrase", ownerUserId],
+    `INSERT INTO matches (mode, difficulty, round_time, word_set, background, status, practice_format, owner_user_id, custom_deck_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [message.mode || "LAN Match", message.difficulty || "Normal", message.roundTime || 90, message.wordSet || "General", message.background || "blues", "active", message.practiceFormat ?? "word-phrase", ownerUserId, message.customDeckId ?? null],
   );
   return result.lastID;
 }
@@ -283,7 +381,7 @@ async function persistRoomConfig(room: Room) {
 
   await getDatabase().run(
     `UPDATE matches
-     SET mode = ?, word_set = ?, difficulty = ?, round_time = ?, background = ?, practice_format = ?
+     SET mode = ?, word_set = ?, difficulty = ?, round_time = ?, background = ?, practice_format = ?, custom_deck_id = ?, custom_deck_snapshot = NULL
      WHERE id = ?`,
     [
       room.mode,
@@ -292,6 +390,7 @@ async function persistRoomConfig(room: Room) {
       room.roundTime,
       room.matchConfig.background,
       room.matchConfig.practiceFormat,
+      room.matchConfig.customDeckId ?? null,
       room.dbMatchId,
     ],
   );
@@ -315,8 +414,43 @@ async function authenticatePlayer(token: string | undefined) {
   };
 }
 
+async function resolveCustomDeck(ownerUserId: number, deckId: number | null | undefined) {
+  if (deckId === null || deckId === undefined) return null;
+  if (!Number.isSafeInteger(deckId) || deckId < 1) {
+    throw new ClassroomConfigError("Invalid custom deck selection.");
+  }
+  const deck = await getDatabase().get(
+    `SELECT id, teacher_user_id, name, practice_format, status
+     FROM custom_decks WHERE id=?`,
+    deckId,
+  );
+  if (!deck) throw new ClassroomConfigError("Custom deck not found.");
+  if (deck.teacher_user_id !== ownerUserId) throw new ClassroomConfigError("This custom deck belongs to another teacher.");
+  if (deck.status !== "active") throw new ClassroomConfigError("Archived custom decks cannot be selected.");
+  if (deck.practice_format !== "word-phrase" && deck.practice_format !== "full-sentence") {
+    throw new ClassroomConfigError("The custom deck has an invalid practice format.");
+  }
+  const entries = await getDatabase().all(
+    `SELECT prompt, answer, sort_order
+     FROM custom_deck_items WHERE deck_id=? ORDER BY sort_order ASC, id ASC`,
+    deckId,
+  );
+  if (entries.length === 0) throw new ClassroomConfigError("The selected custom deck has no entries.");
+  return {
+    id: deck.id as number,
+    name: deck.name as string,
+    practiceFormat: deck.practice_format as "word-phrase" | "full-sentence",
+    entries: entries.map((entry) => ({
+      prompt: entry.prompt === null || entry.prompt === undefined ? null : String(entry.prompt),
+      answer: String(entry.answer),
+      sortOrder: Number(entry.sort_order),
+    })),
+  };
+}
+
 function leaveRoom(player: Player, releaseSlot = false) {
   for (const room of rooms.values()) {
+    if (room.started) forwardPartnerStatus(room, player, "disconnected");
     if (!room.players.delete(player.id)) continue;
 
     if (releaseSlot && !room.started && player.userId !== undefined
@@ -428,8 +562,13 @@ export function attachLanServer(server: import("http").Server,
     socket.on("message", (raw) => {
       messageQueue = messageQueue.then(async () => {
       let message: ClientMessage;
+      const rawText = raw.toString();
+      if (rawText.length > 4096) {
+        send(socket, { type: "error", message: "Message is too large." });
+        return;
+      }
       try {
-        message = JSON.parse(raw.toString()) as ClientMessage;
+        message = JSON.parse(rawText) as ClientMessage;
       } catch {
         send(socket, { type: "error", message: "Message must be valid JSON" });
         return;
@@ -464,14 +603,20 @@ export function attachLanServer(server: import("http").Server,
             return;
           }
 
+          const customDeck = await resolveCustomDeck(identity.userId, message.customDeckId);
           const matchConfig = validateClassroomConfig({
             wordSet: message.wordSet ?? "General",
-            practiceFormat: message.practiceFormat,
+            practiceFormat: customDeck?.practiceFormat ?? message.practiceFormat,
             greggSubmode: message.greggSubmode,
             difficulty: message.difficulty || "Normal",
             roundTime: message.roundTime || 90,
             background: message.background || "blues",
+            customDeckId: customDeck?.id,
+            customDeckName: customDeck?.name,
           });
+          const selectedMatchConfig: ClassroomMatchConfig = customDeck
+            ? { ...matchConfig, wordSet: "general", customDeckId: customDeck.id, customDeckName: customDeck.name }
+            : matchConfig;
 
           player.name = identity.username;
           player.token = connectionToken;
@@ -488,6 +633,7 @@ export function attachLanServer(server: import("http").Server,
               roundTime: matchConfig.roundTime,
               background: matchConfig.background,
               practiceFormat: matchConfig.practiceFormat,
+              customDeckId: selectedMatchConfig.customDeckId,
             }, identity.userId),
             mode: message.mode || "LAN Match",
             difficulty: matchConfig.difficulty,
@@ -495,12 +641,14 @@ export function attachLanServer(server: import("http").Server,
             roundTime: matchConfig.roundTime,
             started: false,
             ownerUserId: identity.userId,
-            matchConfig,
+            matchConfig: selectedMatchConfig,
             classroomResultsSent: false,
             players: new Map([[player.id, player]]),
             students: new Map(),
             maxStudents,
             participantWrites: new Map(),
+            partnerByUserId: new Map(),
+            partnerStates: new Map(),
           };
           if (!await authenticatePlayer(player.token) || socket.readyState !== WebSocket.OPEN) return;
           rooms.set(room.code, room);
@@ -587,6 +735,8 @@ export function attachLanServer(server: import("http").Server,
           if (room.started && !room.classroomResultsSent) {
             send(socket, { type: "room_started", roomCode: room.code,
               matchConfig: room.matchConfig, wordSequence: room.wordSequence, startAt: room.startAt });
+            sendPartnerAssignment(room, player);
+            forwardPartnerStatus(room, player, "playing");
             queueStandings(room);
           }
           if (room.classroomResultsSent) {
@@ -613,13 +763,23 @@ export function attachLanServer(server: import("http").Server,
             return;
           }
 
-          const matchConfig = validateClassroomConfig({ ...room.matchConfig, ...message });
-
-          room.matchConfig = matchConfig;
-          room.wordSet = matchConfig.wordSet;
-          room.difficulty = matchConfig.difficulty;
-          room.roundTime = matchConfig.roundTime;
-          room.matchConfig.background = matchConfig.background;
+          const hasDeckSelection = Object.prototype.hasOwnProperty.call(message, "customDeckId");
+          const requestedDeckId = hasDeckSelection ? message.customDeckId : room.matchConfig.customDeckId;
+          const customDeck = await resolveCustomDeck(identity.userId, requestedDeckId);
+          const matchConfig = validateClassroomConfig({
+            ...room.matchConfig,
+            ...message,
+            customDeckId: customDeck?.id ?? null,
+            customDeckName: customDeck?.name,
+            wordSet: customDeck ? "general" : (message.wordSet ?? room.matchConfig.wordSet),
+            practiceFormat: customDeck?.practiceFormat ?? message.practiceFormat ?? room.matchConfig.practiceFormat,
+          });
+          room.matchConfig = customDeck
+            ? { ...matchConfig, wordSet: "general", customDeckId: customDeck.id, customDeckName: customDeck.name }
+            : { ...matchConfig, customDeckId: undefined, customDeckName: undefined };
+          room.wordSet = room.matchConfig.wordSet;
+          room.difficulty = room.matchConfig.difficulty;
+          room.roundTime = room.matchConfig.roundTime;
           room.wordSequence = undefined;
           await persistRoomConfig(room);
           broadcast(room);
@@ -686,10 +846,47 @@ export function attachLanServer(server: import("http").Server,
             send(socket, { type: "error", message: "A valid classroom match configuration is required." });
             return;
           }
-          room.started = true;
+          const customDeck = await resolveCustomDeck(identity.userId, room.matchConfig.customDeckId);
+          if (room.matchConfig.customDeckId && (!customDeck
+            || customDeck.practiceFormat !== room.matchConfig.practiceFormat)) {
+            send(socket, { type: "error", code: "INVALID_MATCH_CONFIG", message: "The selected custom deck is unavailable or incompatible." });
+            return;
+          }
+          if (customDeck) {
+            room.matchConfig = {
+              ...room.matchConfig,
+              customDeckId: customDeck.id,
+              customDeckName: customDeck.name,
+              practiceFormat: customDeck.practiceFormat,
+              wordSet: "general",
+            };
+          }
           await persistRoomConfig(room);
+          if (customDeck) {
+            const snapshot = JSON.stringify({
+              name: customDeck.name,
+              practiceFormat: customDeck.practiceFormat,
+              entries: customDeck.entries,
+            });
+            await serializeRoomWrite(room, () => getDatabase().run(
+              `UPDATE matches SET custom_deck_id=?, custom_deck_snapshot=?, practice_format=? WHERE id=?`,
+              customDeck.id,
+              snapshot,
+              customDeck.practiceFormat,
+              room.dbMatchId,
+            ));
+          }
+          room.started = true;
           room.startAt = Date.now() + COUNTDOWN_DELAY_MS;
-          room.wordSequence = createClassroomSequence(room.matchConfig);
+          room.wordSequence = customDeck
+            ? customDeck.entries.map((entry) => entry.answer)
+            : createClassroomSequence(room.matchConfig);
+          room.partnerByUserId = buildPartnerPairs(
+            [...room.students.values()]
+              .filter((student) => student.role === "student" && student.userId !== undefined)
+              .map((student) => student.userId as number),
+          );
+          room.partnerStates.clear();
           room.deadlineTimer = setTimeout(() => {
             void finalizeRoom(room).catch(() => {
               for (const participant of room.players.values()) send(participant.socket,
@@ -704,10 +901,56 @@ export function attachLanServer(server: import("http").Server,
               matchConfig: room.matchConfig,
               wordSequence: room.wordSequence,
               startAt: room.startAt,
+              partner: participant.userId !== undefined ? partnerAssignment(room, participant.userId) : null,
             });
+            if (!participant.isHost) sendPartnerAssignment(room, participant);
           }
           broadcast(room);
           broadcastStandings(room);
+        } else if (message.type === "partner_pov_update") {
+          if (player.role !== "student" || !player.userId || !room.started || room.classroomResultsSent || room.finalization) return;
+          if (message.roomCode && message.roomCode !== room.code) return;
+          const partnerId = room.partnerByUserId.get(player.userId);
+          if (!partnerId) return;
+          const partner = room.students.get(partnerId);
+          if (!partner || partner.userId !== partnerId) return;
+          if (typeof message.target !== "string" || typeof message.typedPrefix !== "string"
+            || message.target.length > 500 || message.typedPrefix.length > 500) {
+            send(socket, { type: "error", message: "Invalid partner preview update." });
+            return;
+          }
+          const target = message.target;
+          const typedPrefix = message.typedPrefix;
+          const tileX = message.tileX;
+          const tileY = message.tileY;
+          const remainingTime = message.remainingTime;
+          if (typeof tileX !== "number" || typeof tileY !== "number" || typeof remainingTime !== "number"
+            || !Number.isFinite(tileX) || !Number.isFinite(tileY) || tileX < 0 || tileX > 1 || tileY < 0 || tileY > 1
+            || !Number.isInteger(remainingTime) || remainingTime < 0 || remainingTime > room.roundTime
+            || typeof message.status !== "string" || !["playing", "paused", "completed"].includes(message.status)) {
+            send(socket, { type: "error", message: "Invalid partner preview update." });
+            return;
+          }
+          const performance = player.performance;
+          const state: PartnerPovState = {
+            userId: player.userId,
+            displayName: player.displayName || player.name,
+            target,
+            typedPrefix,
+            tileX,
+            tileY,
+            lives: performance?.lives ?? 3,
+            score: performance?.score ?? 0,
+            wpm: performance?.wpm ?? 0,
+            accuracy: performance?.accuracy ?? 0,
+            remainingTime,
+            completedWords: performance?.completedWords ?? 0,
+            status: message.status,
+          };
+          room.partnerStates.set(player.userId, state);
+          if (partner.socket.readyState === WebSocket.OPEN) {
+            send(partner.socket, { type: "partner_pov_update", state });
+          }
         } else if (message.type === "score_update") {
           if (player.role !== "student" || !player.userId || !room.started) return;
           if (room.classroomResultsSent || room.finalization || room.closing) return;

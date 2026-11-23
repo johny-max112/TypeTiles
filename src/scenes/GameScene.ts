@@ -36,6 +36,12 @@ export type GamePerformance = {
   lives: number;
   completedWords: number;
   finished: boolean;
+  target?: string;
+  typedPrefix?: string;
+  tileX?: number;
+  tileY?: number;
+  remainingTime?: number;
+  status?: "playing" | "paused" | "completed";
 };
 
 type GameSceneInitData = {
@@ -246,6 +252,7 @@ export default class GameScene extends Phaser.Scene {
       isSolo: this.gameMode === "solo",
       onRestart: () => this.onRestart?.(),
       onExit: () => this.onExit?.(),
+      onPauseChange: () => this.reportPerformance(true),
     });
     this.waterEffects = new WaterEffects(this, this.WATER_LAST_FRAME);
     this.waterEffects.ensureAnimations();
@@ -727,6 +734,12 @@ export default class GameScene extends Phaser.Scene {
       lives: this.lives,
       completedWords: this.completedWords,
       finished: this.gameOver,
+      target: this.activeWord,
+      typedPrefix: this.typedText,
+      tileX: this.scale.width > 0 ? this.wordX / this.scale.width : 0,
+      tileY: this.scale.height > 0 ? this.wordY / this.scale.height : 0,
+      remainingTime: Math.max(0, Math.ceil(this.remainingSeconds)),
+      status: this.gameOver ? "completed" : this.pauseMenu.isPaused ? "paused" : "playing",
     });
   }
 

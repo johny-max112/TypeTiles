@@ -8,6 +8,7 @@ import matchesRoutes from "./routes/matches.js";
 import leaderboardRoutes from "./routes/leaderboard.js";
 import adminRoutes from "./routes/admin.js";
 import feedbackRoutes from "./routes/feedback.js";
+import customDeckRoutes from "./routes/customDecks.js";
 import { attachLanServer } from "./lan.js";
 import { jwtSecret } from "./auth.js";
 import { resetSecret } from "./passwordReset.js";
@@ -45,6 +46,7 @@ app.use("/api", matchesRoutes);
 app.use("/api", leaderboardRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/feedback", feedbackRoutes);
+app.use("/api", customDeckRoutes);
 
 // Error handling
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {

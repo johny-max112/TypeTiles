@@ -159,12 +159,20 @@ export default function Dashboard() {
             Start Game
           </button>
           {user?.role === "teacher" ? (
-            <Link
-              to="/app/lobby"
-              className="flex h-[50px] w-full items-center justify-center rounded-[8px] border border-[#bde9ff] bg-[#7357f1] px-6 text-[1rem] font-medium text-white shadow-[0_14px_30px_rgba(80,63,220,0.35)] transition hover:brightness-110"
-            >
-              Create Classroom
-            </Link>
+            <>
+              <Link
+                to="/app/lobby"
+                className="flex h-[50px] w-full items-center justify-center rounded-[8px] border border-[#bde9ff] bg-[#7357f1] px-6 text-[1rem] font-medium text-white shadow-[0_14px_30px_rgba(80,63,220,0.35)] transition hover:brightness-110"
+              >
+                Create Classroom
+              </Link>
+              <Link
+                to="/app/custom-decks"
+                className="flex h-[50px] w-full items-center justify-center rounded-[8px] border border-[#bde9ff] bg-[#2746a6] px-6 text-[1rem] font-medium text-white shadow-[0_14px_30px_rgba(39,70,166,0.35)] transition hover:brightness-110"
+              >
+                Custom Decks
+              </Link>
+            </>
           ) : null}
           <article className="rounded-[10px] border border-[#2967a1] bg-[#1d234a] p-4 shadow-[0_16px_30px_rgba(4,8,25,0.35)]">
             <div className="space-y-4">

@@ -13,6 +13,12 @@ export default function TeacherDashboard() {
       </div>
 
       <div className="mt-4 grid gap-4 md:grid-cols-2">
+        <Link to="/app/custom-decks" className="hud-panel rounded-[1.5rem] p-6 transition hover:border-emerald-400/40">
+          <div className="text-xs uppercase tracking-[0.3em] text-emerald-300">Content</div>
+          <h2 className="mt-2 text-2xl font-semibold text-white">Custom Decks</h2>
+          <p className="mt-2 text-slate-400">Create and manage private word and sentence practice decks.</p>
+        </Link>
+
         <Link to="/app/lobby" className="hud-panel rounded-[1.5rem] p-6 transition hover:border-emerald-400/40">
           <div className="text-xs uppercase tracking-[0.3em] text-emerald-300">Classroom</div>
           <h2 className="mt-2 text-2xl font-semibold text-white">Create Classroom</h2>

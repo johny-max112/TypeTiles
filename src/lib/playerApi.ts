@@ -128,6 +128,39 @@ export type CreateMatchResponse = CreateMatchInput & {
   status: string;
 };
 
+export type CustomDeckPracticeFormat = "word-phrase" | "full-sentence";
+
+export type CustomDeckEntry = {
+  id: number;
+  prompt: string | null;
+  answer: string;
+  sort_order: number;
+};
+
+export type CustomDeck = {
+  id: number;
+  teacher_user_id: number;
+  name: string;
+  practice_format: CustomDeckPracticeFormat;
+  status: "active" | "archived";
+  created_at: string;
+  updated_at: string;
+  entry_count?: number;
+  entries?: CustomDeckEntry[];
+};
+
+export type CustomDeckEntryInput = {
+  prompt?: string | null;
+  answer: string;
+  sort_order: number;
+};
+
+export type CustomDeckInput = {
+  name: string;
+  practiceFormat: CustomDeckPracticeFormat;
+  entries: CustomDeckEntryInput[];
+};
+
 export type SubmitMatchResultInput = {
   matchId: number;
   score: number;
@@ -277,6 +310,40 @@ export function getTeacherStudentHistory(studentId: number): Promise<TeacherStud
 
 export function getTeacherMatchDetails(matchId: number): Promise<TeacherMatchDetails> {
   return authenticatedRequest<TeacherMatchDetails>(`/teacher/matches/${matchId}`);
+}
+
+export function getCustomDecks(): Promise<{ decks: CustomDeck[] }> {
+  return authenticatedRequest<{ decks: CustomDeck[] }>("/custom-decks");
+}
+
+export function getCustomDeck(deckId: number): Promise<{ deck: CustomDeck }> {
+  return authenticatedRequest<{ deck: CustomDeck }>(`/custom-decks/${deckId}`);
+}
+
+export function createCustomDeck(input: CustomDeckInput): Promise<{ deck: CustomDeck }> {
+  return authenticatedRequest<{ deck: CustomDeck }>("/custom-decks", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
+export function updateCustomDeck(deckId: number, input: Partial<Omit<CustomDeckInput, "entries">> & { entries?: CustomDeckEntryInput[] }): Promise<{ deck: CustomDeck }> {
+  return authenticatedRequest<{ deck: CustomDeck }>(`/custom-decks/${deckId}`, {
+    method: "PATCH",
+    body: JSON.stringify(input),
+  });
+}
+
+export function archiveCustomDeck(deckId: number): Promise<{ deck: CustomDeck }> {
+  return authenticatedRequest<{ deck: CustomDeck }>(`/custom-decks/${deckId}/archive`, {
+    method: "POST",
+  });
+}
+
+export function deleteCustomDeck(deckId: number): Promise<{ deleted: boolean }> {
+  return authenticatedRequest<{ deleted: boolean }>(`/custom-decks/${deckId}`, {
+    method: "DELETE",
+  });
 }
 
 export function getLeaderboard(tier?: string): Promise<{ leaderboard: LeaderboardRow[]; tier?: string }> {

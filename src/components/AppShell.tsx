@@ -1,4 +1,4 @@
-import { Dices, LogOut, Menu, Trophy, UserRound, Users, X } from "lucide-react";
+import { Dices, Library, LogOut, Menu, Trophy, UserRound, Users, X } from "lucide-react";
 import { useState } from "react";
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import homeIcon from "../assets/homeicon/home.png";
@@ -10,6 +10,7 @@ const navItems = [
   { label: "Multiplayer", to: "/app/lobby", icon: Users, iconClassName: "h-5 w-5" },
   { label: "Results", to: "/app/results", icon: Trophy, iconClassName: "h-5 w-5" },
   { label: "Student Progress", to: "/app/student-progress", icon: Users, iconClassName: "h-5 w-5", teacherOnly: true },
+  { label: "Custom Decks", to: "/app/custom-decks", icon: Library, iconClassName: "h-5 w-5", teacherOnly: true },
   { label: "Profile", to: "/app/customize", icon: UserRound, iconClassName: "h-5 w-5" },
 ] as const;
 

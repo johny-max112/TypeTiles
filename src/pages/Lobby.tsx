@@ -13,6 +13,7 @@ import { getBackendEndpoints, getSavedClassroomConnection, CLASSROOM_ROOM_KEY as
 import { usePlayerAuth } from "../lib/PlayerAuthContext";
 import { WORD_CATEGORIES, type WordCategory } from "../words";
 import { PROFILE_BACKGROUNDS, type ProfileBackgroundId } from "../lib/profileAssets";
+import { getCustomDecks, type CustomDeck } from "../lib/playerApi";
 
 type Player = {
   id: string;
@@ -24,8 +25,10 @@ type Player = {
   displayName?: string;
 };
 
-type ClassroomMatchConfig = Omit<ServerClassroomMatchConfig, "background"> & {
+type ClassroomMatchConfig = Omit<ServerClassroomMatchConfig, "background" | "customDeckId" | "customDeckName"> & {
   background: ProfileBackgroundId;
+  customDeckId?: number | null;
+  customDeckName?: string;
 };
 
 type RoomState = {
@@ -81,10 +84,31 @@ export default function Lobby() {
   const [matchInProgress, setMatchInProgress] = useState(false);
   const [countdown, setCountdown] = useState(0);
   const [error, setError] = useState("");
+  const [customDecks, setCustomDecks] = useState<CustomDeck[]>([]);
+  const [customDecksLoading, setCustomDecksLoading] = useState(false);
+  const [customDecksError, setCustomDecksError] = useState("");
 
   const [status, setStatus] = useState<
     "idle" | "connecting" | "connected"
   >("idle");
+
+  useEffect(() => {
+    if (user?.role !== "teacher") return;
+    let cancelled = false;
+    setCustomDecksLoading(true);
+    setCustomDecksError("");
+    void getCustomDecks()
+      .then((response) => {
+        if (!cancelled) setCustomDecks(response.decks.filter((deck) => deck.status === "active"));
+      })
+      .catch((loadError) => {
+        if (!cancelled) setCustomDecksError(loadError instanceof Error ? loadError.message : "Unable to load custom decks");
+      })
+      .finally(() => {
+        if (!cancelled) setCustomDecksLoading(false);
+      });
+    return () => { cancelled = true; };
+  }, [user?.role]);
 
   const connect = () => {
     setError("");
@@ -431,6 +455,9 @@ export default function Lobby() {
       wordSet:
         config.wordSet || room.matchConfig.wordSet,
       practiceFormat: config.practiceFormat ?? room.matchConfig.practiceFormat ?? "word-phrase",
+      customDeckId: Object.prototype.hasOwnProperty.call(config, "customDeckId")
+        ? config.customDeckId ?? null
+        : room.matchConfig.customDeckId ?? null,
 
       difficulty:
         config.difficulty ||
@@ -727,44 +754,67 @@ export default function Lobby() {
 
                 <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
                   <label className="text-xs text-white/70">
-                    Category
+                    Practice Content
 
                     <select
                       value={
-                        room.matchConfig.wordSet
+                        room.matchConfig.customDeckId
+                          ? `custom:${room.matchConfig.customDeckId}`
+                          : room.matchConfig.wordSet
                       }
                       disabled={
                         !currentPlayer?.isHost ||
                         room.started
                       }
-                      onChange={(event) =>
+                      onChange={(event) => {
+                        const value = event.target.value;
+                        if (value.startsWith("custom:")) {
+                          const deckId = Number(value.slice("custom:".length));
+                          const deck = customDecks.find((item) => item.id === deckId);
+                          if (!deck) return;
+                          updateMatchConfig({
+                            wordSet: "general",
+                            customDeckId: deckId,
+                            customDeckName: deck.name,
+                            practiceFormat: deck.practice_format,
+                          });
+                          return;
+                        }
                         updateMatchConfig({
-                          wordSet:
-                            event.target
-                              .value as WordCategory,
-                        })
-                      }
+                          wordSet: value as WordCategory,
+                          customDeckId: null,
+                          customDeckName: undefined,
+                        });
+                      }}
                       className="mt-1 w-full rounded bg-[#d7d7df] px-2 py-2 text-sm text-[#161a3b] disabled:opacity-70"
                     >
-                      {WORD_CATEGORIES.map(
-                        (category) => (
-                          <option
-                            key={category}
-                            value={category}
-                          >
-                            {category
-                              .charAt(0)
-                              .toUpperCase() +
-                              category.slice(1)}
+                      <optgroup label="Existing Categories">
+                        {WORD_CATEGORIES.map((category) => (
+                          <option key={category} value={category}>
+                            {category.charAt(0).toUpperCase() + category.slice(1)}
                           </option>
-                        )
-                      )}
+                        ))}
+                      </optgroup>
+                      {customDecks.length > 0 ? (
+                        <optgroup label="My Custom Decks">
+                          {customDecks.map((deck) => (
+                            <option key={deck.id} value={`custom:${deck.id}`}>
+                              {deck.name} ({deck.practice_format === "full-sentence" ? "Full Sentence" : "Word / Phrase"})
+                            </option>
+                          ))}
+                        </optgroup>
+                      ) : null}
                     </select>
+                    {customDecksLoading ? <span className="mt-1 block text-slate-400">Loading custom decks...</span> : null}
+                    {!customDecksLoading && customDecksError ? <span className="mt-1 block text-amber-300">{customDecksError}</span> : null}
+                    {!customDecksLoading && !customDecksError && customDecks.length === 0 ? (
+                      <span className="mt-1 block text-slate-400">No active custom decks. Create one in Custom Decks.</span>
+                    ) : null}
                   </label>
 
                   <ClassroomFormatSelect
                     value={room.matchConfig.practiceFormat ?? "word-phrase"}
-                    disabled={!currentPlayer?.isHost || room.started}
+                    disabled={!currentPlayer?.isHost || room.started || Boolean(room.matchConfig.customDeckId)}
                     stenography={room.matchConfig.wordSet === "stenography"}
                     onChange={practiceFormat => updateMatchConfig({ practiceFormat })}
                   />

@@ -87,7 +87,9 @@ export default function PreMatch() {
           </div>
 
           <div className="mt-3 rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-white">
-            Category: {matchConfig.wordSet}
+            {(matchConfig as typeof matchConfig & { customDeckName?: string }).customDeckName
+              ? `Custom Deck: ${(matchConfig as typeof matchConfig & { customDeckName?: string }).customDeckName}`
+              : `Category: ${matchConfig.wordSet}`}
             {isGreggStenographyCategory(matchConfig.wordSet) ? (
               <div className="mt-2">Stenography Mode: {greggSubmodeLabel(resolveGreggSubmode(matchConfig.greggSubmode))}</div>
             ) : <div className="mt-2">Practice Format: {practiceFormatLabel(matchConfig.practiceFormat)}</div>}

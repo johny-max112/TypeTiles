@@ -13,6 +13,8 @@ import {
 import { usePlayerAuth } from "../lib/PlayerAuthContext";
 import { getProfileBackground } from "../lib/profileAssets";
 import type { ClassroomRankUpdate, ClassroomStanding } from "../lib/classroomTypes";
+import type { PartnerPovState } from "../lib/classroomTypes";
+import { PartnerPovPreview } from "../components/PartnerPovPreview";
 import { getBackendEndpoints, CLASSROOM_ROOM_KEY, CLASSROOM_ENDPOINT_KEY } from "../lib/endpoints";
 
 type ClassroomResult = ClassroomStanding;
@@ -54,6 +56,9 @@ export default function Game({
     useState<ClassroomResult[] | null>(null);
   const [liveRank, setLiveRank] = useState<ClassroomRankUpdate | null>(null);
   const [classroomError, setClassroomError] = useState("");
+  const [partnerAssignment, setPartnerAssignment] = useState<{ userId: number; displayName: string } | null>(null);
+  const [partnerAssignmentResolved, setPartnerAssignmentResolved] = useState(false);
+  const [partnerPov, setPartnerPov] = useState<PartnerPovState | null>(null);
 
   const currentUserRank = useMemo(() => {
     if (!classroomResults || user?.id === undefined) {
@@ -110,7 +115,23 @@ export default function Game({
           message?: string;
           players?: ClassroomResult[];
           code?: string;
+          partner?: { userId: number; displayName: string } | null;
+          state?: PartnerPovState;
         };
+
+        if (message.type === "partner_assignment") {
+          setPartnerAssignment(message.partner ?? null);
+          setPartnerAssignmentResolved(true);
+          setPartnerPov(null);
+        }
+        if (message.type === "room_started" && "partner" in message) {
+          const started = message as { partner?: { userId: number; displayName: string } | null };
+          setPartnerAssignment(started.partner ?? null);
+          setPartnerAssignmentResolved(true);
+        }
+        if (message.type === "partner_pov_update" && message.state) {
+          setPartnerPov(message.state);
+        }
 
         if (message.type === "rank_update") {
           const rank = message as ClassroomRankUpdate;
@@ -129,6 +150,19 @@ export default function Game({
                 type: "score_update",
                 roomCode,
                 ...latestPerformanceRef.current,
+              })
+            );
+            const performance = latestPerformanceRef.current;
+            socket.send(
+              JSON.stringify({
+                type: "partner_pov_update",
+                roomCode,
+                target: performance.target ?? "",
+                typedPrefix: performance.typedPrefix ?? "",
+                tileX: performance.tileX ?? 0,
+                tileY: performance.tileY ?? 0,
+                remainingTime: performance.remainingTime ?? 0,
+                status: performance.status ?? "playing",
               })
             );
           }
@@ -205,6 +239,18 @@ export default function Game({
         type: "score_update",
         roomCode,
         ...performance,
+      })
+    );
+    socketRef.current.send(
+      JSON.stringify({
+        type: "partner_pov_update",
+        roomCode,
+        target: performance.target ?? "",
+        typedPrefix: performance.typedPrefix ?? "",
+        tileX: performance.tileX ?? 0,
+        tileY: performance.tileY ?? 0,
+        remainingTime: performance.remainingTime ?? 0,
+        status: performance.status ?? "playing",
       })
     );
   };
@@ -322,19 +368,33 @@ export default function Game({
       ) : null}
       {/* GAME AREA */}
       {!classroomResults ? (
-        <div className="flex min-h-0 min-w-0 flex-1 gap-4">
-          <GameMount
-            mode={mode}
-            roomCode={roomCode}
-            matchConfig={matchConfig}
-            backgroundImage={getProfileBackground(backgroundId || user?.background).source}
-            onRestart={mode === "solo" ? restartMatch : undefined}
-            onExit={mode === "solo" ? exitMatch : undefined}
-            wordSequence={wordSequence}
-            startAt={startAt}
-            onGameOver={handleGameOver}
-            onPerformance={handlePerformance}
-          />
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-3 lg:flex-row">
+          <div className="min-h-0 min-w-0 flex-[65] overflow-hidden lg:h-full">
+            <div className="flex h-full min-h-0 min-w-0">
+              <GameMount
+                mode={mode}
+                roomCode={roomCode}
+                matchConfig={matchConfig}
+                backgroundImage={getProfileBackground(backgroundId || user?.background).source}
+                onRestart={mode === "solo" ? restartMatch : undefined}
+                onExit={mode === "solo" ? exitMatch : undefined}
+                wordSequence={wordSequence}
+                startAt={startAt}
+                onGameOver={handleGameOver}
+                onPerformance={handlePerformance}
+              />
+            </div>
+          </div>
+          {mode === "multiplayer" ? (
+            partnerAssignmentResolved ? (
+              <PartnerPovPreview partner={partnerPov} assignment={partnerAssignment} />
+            ) : (
+              <aside className="flex min-h-[190px] shrink-0 flex-col items-center justify-center rounded-2xl border border-white/10 bg-slate-950/85 p-4 text-center text-white lg:h-full lg:w-[35%]" aria-label="Partner gameplay preview">
+                <div className="text-xs uppercase tracking-[0.25em] text-slate-400">Partner POV</div>
+                <p className="mt-2 text-sm text-slate-300">Loading partner assignment…</p>
+              </aside>
+            )
+          ) : null}
         </div>
       ) : (
         /*

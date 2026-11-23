@@ -5,6 +5,8 @@ export type ClassroomMatchConfig = {
   wordSet: WordCategory;
   practiceFormat: PracticeFormat;
   greggSubmode?: PracticeFormat;
+  customDeckId?: number;
+  customDeckName?: string;
   difficulty: "Easy" | "Normal" | "Hard";
   roundTime: 30 | 60 | 90;
   background: string;
@@ -13,6 +15,8 @@ export type ClassroomMatchConfig = {
 type ConfigInput = {
   wordSet?: string; practiceFormat?: string; greggSubmode?: string;
   difficulty?: string; roundTime?: number; background?: string;
+  customDeckId?: number | null;
+  customDeckName?: string;
 };
 
 export class ClassroomConfigError extends Error {}

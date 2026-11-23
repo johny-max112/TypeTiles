@@ -7,14 +7,16 @@ export class PauseMenu {
   private readonly isSolo: boolean;
   private readonly onRestart: () => void;
   private readonly onExit: () => void;
+  private readonly onPauseChange: (paused: boolean) => void;
 
   private paused = false;
 
-  constructor(scene: Phaser.Scene, options: { isSolo: boolean; onRestart: () => void; onExit: () => void }) {
+  constructor(scene: Phaser.Scene, options: { isSolo: boolean; onRestart: () => void; onExit: () => void; onPauseChange?: (paused: boolean) => void }) {
     this.scene = scene;
     this.isSolo = options.isSolo;
     this.onRestart = options.onRestart;
     this.onExit = options.onExit;
+    this.onPauseChange = options.onPauseChange ?? (() => {});
 
     const btnBg = this.scene.add
       .rectangle(0, 0, 86, 32, 0x101820, 0.85)
@@ -114,6 +116,7 @@ export class PauseMenu {
     this.paused = true;
     this.pauseModal.setVisible(true);
     this.scene.tweens.pauseAll();
+    this.onPauseChange(true);
   }
 
   close(): void {
@@ -122,5 +125,6 @@ export class PauseMenu {
     this.paused = false;
     this.pauseModal.setVisible(false);
     this.scene.tweens.resumeAll();
+    this.onPauseChange(false);
   }
 }

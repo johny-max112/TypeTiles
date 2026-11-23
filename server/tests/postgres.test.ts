@@ -29,6 +29,7 @@ import { resultIntegrityChecks } from "./resultIntegrityChecks.js";
 import { teacherProgressChecks } from "./teacherProgressChecks.js";
 import { classroomReliabilityChecks } from "./classroomReliabilityChecks.js";
 import { adminDashboardChecks } from "./adminDashboardChecks.js";
+import customDeckRoutes from "../src/routes/customDecks.js";
 
 test("classroom ownership migration preserves legacy accounts/results and is idempotent", async () => {
   const engine = new PGlite();
@@ -183,13 +184,14 @@ test("PostgreSQL engine: registration, recovery, Solo/history, admin and LAN per
   const app = express(); app.use(express.json());
   app.use("/api/auth", createPasswordResetRouter(recovery), createAuthRouter(verification));
   app.use("/api", matchesRoutes, leaderboardRoutes);
+  app.use("/api", customDeckRoutes);
   app.use("/api/admin", adminRoutes); app.use("/api/feedback", feedbackRoutes);
   const server = createServer(app); const lan = attachLanServer(server); const sockets: WebSocket[] = [];
   server.listen(0, "127.0.0.1"); await once(server, "listening");
   const address = server.address(); assert(address && typeof address !== "string");
   const base = `http://127.0.0.1:${address.port}/api`;
-  const request = async (path: string, body?: object, token?: string) => {
-    const response = await fetch(base + path, { method: body ? "POST" : "GET",
+  const request = async (path: string, body?: object, token?: string, method?: "GET" | "POST" | "PUT" | "PATCH" | "DELETE") => {
+    const response = await fetch(base + path, { method: method ?? (body ? "POST" : "GET"),
       headers: { "Content-Type": "application/json", Origin: "http://localhost:5173", "X-TypeTiles-Request": "1", ...(token ? { cookie: `typetiles_session=${token}` } : {}) },
       ...(body ? { body: JSON.stringify(body) } : {}) });
     return { status: response.status, body: await response.json(), sessionToken: response.headers.get("set-cookie")?.match(/(?:^|,\s*)typetiles_session=([^;]+)/)?.[1] };
@@ -214,6 +216,69 @@ test("PostgreSQL engine: registration, recovery, Solo/history, admin and LAN per
       assert.equal((await db.get("SELECT display_name FROM users WHERE id = ?", studentId)).display_name, "Student");
       await engine.exec(migration);
       assert.equal((await db.get("SELECT count(*) AS count FROM users")).count, 1);
+    });
+    await t.test("PostgreSQL custom deck API ownership, ordering, archive and snapshot safety", async () => {
+      assert.equal((await request("/custom-decks", undefined, token)).status, 403);
+      const teacherId = (await db.run(
+        "INSERT INTO users(username,email,password_hash,display_name,role,email_verified) VALUES(?,?,?,?,?,1)",
+        "pg-deck-owner", "pg-deck-owner@example.test", "unused-test-only", "Deck Owner", "teacher",
+      )).lastID!;
+      const otherTeacherId = (await db.run(
+        "INSERT INTO users(username,email,password_hash,display_name,role,email_verified) VALUES(?,?,?,?,?,1)",
+        "pg-deck-other", "pg-deck-other@example.test", "unused-test-only", "Other Deck Teacher", "teacher",
+      )).lastID!;
+      const teacherToken = generateToken({ userId: teacherId, username: "pg-deck-owner", role: "teacher" });
+      const otherToken = generateToken({ userId: otherTeacherId, username: "pg-deck-other", role: "teacher" });
+
+      const created = await request("/custom-decks", {
+        name: "PostgreSQL Terms",
+        practiceFormat: "word-phrase",
+        entries: [
+          { answer: "invoice" },
+          { prompt: "Review the memo", answer: "memo" },
+        ],
+      }, teacherToken);
+      assert.equal(created.status, 201);
+      const deckId = created.body.deck.id;
+      assert.deepEqual(
+        created.body.deck.entries.map((entry: any) => [entry.answer, entry.sort_order]),
+        [["invoice", 0], ["memo", 1]],
+      );
+
+      assert.equal((await request(`/custom-decks/${deckId}`, undefined, otherToken)).status, 404);
+      assert.equal((await request(`/custom-decks/${deckId}`, { name: "Unauthorized" }, otherToken, "PUT")).status, 404);
+      assert.equal((await request(`/custom-decks/${deckId}/archive`, undefined, otherToken, "POST")).status, 404);
+
+      const snapshot = { name: "PostgreSQL Terms", entries: ["invoice", "memo"] };
+      const matchId = (await db.run(
+        "INSERT INTO matches(mode,difficulty,round_time,word_set,status,practice_format,owner_user_id,custom_deck_id,custom_deck_snapshot) VALUES(?,?,?,?,?,?,?,?,?)",
+        ["LAN Match", "Normal", 90, "Custom", "active", "word-phrase", teacherId, deckId, JSON.stringify(snapshot)],
+      )).lastID!;
+
+      const updated = await request(`/custom-decks/${deckId}`, {
+        name: "Updated PostgreSQL Terms",
+        entries: [
+          { answer: "second", sort_order: 2 },
+          { answer: "first", sort_order: 1 },
+        ],
+      }, teacherToken, "PATCH");
+      assert.equal(updated.status, 200);
+      assert.deepEqual(
+        updated.body.deck.entries.map((entry: any) => [entry.answer, entry.sort_order]),
+        [["first", 0], ["second", 1]],
+      );
+
+      const archived = await request(`/custom-decks/${deckId}/archive`, undefined, teacherToken, "POST");
+      assert.equal(archived.status, 200);
+      assert.equal(archived.body.deck.status, "archived");
+
+      const deleted = await request(`/custom-decks/${deckId}`, undefined, teacherToken, "DELETE");
+      assert.equal(deleted.status, 200);
+      const match = await db.get("SELECT custom_deck_id, custom_deck_snapshot FROM matches WHERE id=?", matchId);
+      assert.equal(match?.custom_deck_id, null);
+      assert.deepEqual(match?.custom_deck_snapshot, snapshot);
+      await db.run("DELETE FROM matches WHERE id=?", matchId);
+      await db.run("DELETE FROM users WHERE id IN (?, ?)", teacherId, otherTeacherId);
     });
     await t.test("sentence results, decimal WPM, leaderboard, history and protected teacher/admin views", async () => {
       const created = await request("/matches", { mode: "Solo Practice", difficulty: "Normal", roundTime: 60, wordSet: "General", practiceFormat: "full-sentence" }, token);
