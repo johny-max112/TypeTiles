@@ -52,6 +52,62 @@ test("classroom ownership migration preserves legacy accounts/results and is ide
   } finally { await engine.close(); }
 });
 
+test("custom deck PostgreSQL migration is additive, snapshot-safe and idempotent", async () => {
+  const engine = new PGlite();
+  try {
+    await engine.exec("CREATE ROLE anon; CREATE ROLE authenticated;");
+    await engine.exec(await readFile(new URL("../../supabase/migrations/20261018000100_initial_type_tiles.sql", import.meta.url), "utf8"));
+    await engine.exec(await readFile(new URL("../../supabase/migrations/20261108000100_classroom_ownership.sql", import.meta.url), "utf8"));
+    await engine.exec(`INSERT INTO users(username,email,password_hash,display_name,role,email_verified)
+      VALUES('deck-teacher','deck-teacher@example.test','test-only','Deck Teacher','teacher',1);
+      INSERT INTO matches(mode,difficulty,word_set,status)
+      VALUES('LAN Match','Normal','General','completed');`);
+    const legacyMatch = (await engine.query("SELECT * FROM matches WHERE id=1")).rows[0];
+
+    const migration = await readFile(new URL("../../supabase/migrations/20261123000100_custom_decks.sql", import.meta.url), "utf8");
+    await engine.exec(migration);
+    await engine.exec(migration);
+
+    const marker = await engine.query(
+      "SELECT version FROM public.typetiles_schema_migrations WHERE version='20261123000100'",
+    );
+    assert.equal(marker.rows.length, 1);
+
+    const teacher = (await engine.query("SELECT id FROM users WHERE username='deck-teacher'")).rows[0].id;
+    const deck = (await engine.query(
+      "INSERT INTO custom_decks(teacher_user_id,name,practice_format,status) VALUES($1,'Office Terms','word-phrase','active') RETURNING id",
+      [teacher],
+    )).rows[0].id;
+    await engine.query(
+      "INSERT INTO custom_deck_items(deck_id,prompt,answer,sort_order) VALUES($1,NULL,'invoice',0),($1,'Review the memo','memo',1)",
+      [deck],
+    );
+    const items = (await engine.query(
+      "SELECT prompt,answer,sort_order FROM custom_deck_items WHERE deck_id=$1 ORDER BY sort_order",
+      [deck],
+    )).rows;
+    assert.deepEqual(items, [
+      { prompt: null, answer: "invoice", sort_order: 0 },
+      { prompt: "Review the memo", answer: "memo", sort_order: 1 },
+    ]);
+
+    const snapshot = JSON.stringify({ name: "Office Terms", items: [{ answer: "invoice" }, { answer: "memo" }] });
+    await engine.query(
+      "UPDATE matches SET custom_deck_id=$1,custom_deck_snapshot=$2::jsonb WHERE id=1",
+      [deck, snapshot],
+    );
+    await engine.query("DELETE FROM custom_decks WHERE id=$1", [deck]);
+    const preserved = (await engine.query("SELECT * FROM matches WHERE id=1")).rows[0];
+    assert.equal(preserved.custom_deck_id, null);
+    assert.equal(preserved.mode, legacyMatch.mode);
+    assert.equal(preserved.word_set, legacyMatch.word_set);
+    assert.equal(preserved.status, legacyMatch.status);
+    assert.deepEqual(preserved.custom_deck_snapshot, JSON.parse(snapshot));
+  } finally {
+    await engine.close();
+  }
+});
+
 test("PostgreSQL query binding and TLS configuration preserve API types", () => {
   assert.equal(postgresQuery("SELECT '?' AS literal, \"?\", $$?$$, $tag$?$tag$, ? -- ?\n, ? /* ? /* ? */ ? */"),
     "SELECT '?' AS literal, \"?\", $$?$$, $tag$?$tag$, $1 -- ?\n, $2 /* ? /* ? */ ? */");
@@ -97,6 +153,9 @@ test("PostgreSQL engine: registration, recovery, Solo/history, admin and LAN per
   const ownershipMigration = await readFile(new URL("../../supabase/migrations/20261108000100_classroom_ownership.sql", import.meta.url), "utf8");
   await engine.exec(ownershipMigration);
   await engine.exec(ownershipMigration);
+  const customDecksMigration = await readFile(new URL("../../supabase/migrations/20261123000100_custom_decks.sql", import.meta.url), "utf8");
+  await engine.exec(customDecksMigration);
+  await engine.exec(customDecksMigration);
   // PGlite has one engine connection. Lease it exclusively for auth transactions.
   // Real deployed locking is provided by PostgreSQL's transaction advisory lock.
   let tail = Promise.resolve();

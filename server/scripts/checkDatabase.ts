@@ -8,6 +8,10 @@ try {
   const db = await initializeDatabase();
   const row = await db.get("SELECT version FROM public.typetiles_schema_migrations WHERE version = ?", "20261018000100");
   if (!row) throw new Error("The Type Tiles initial migration is missing.");
+  const ownership = await db.get("SELECT version FROM public.typetiles_schema_migrations WHERE version = ?", "20261108000100");
+  if (!ownership) throw new Error("The Type Tiles classroom ownership migration is missing.");
+  const customDecks = await db.get("SELECT version FROM public.typetiles_schema_migrations WHERE version = ?", "20261123000100");
+  if (!customDecks) throw new Error("The Type Tiles custom decks migration is missing.");
   console.log("PostgreSQL connection and Type Tiles migration confirmed. No records were changed.");
 } catch (error) {
   // Do not dump connection objects, URLs or user-supplied credentials.

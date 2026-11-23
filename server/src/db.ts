@@ -28,6 +28,8 @@ export async function initializeDatabase(options: { postgresPool?: DatabasePool 
       if (!version) throw new Error("Apply the Type Tiles initial migration in Supabase before starting the backend.");
       const ownership = await database.get("SELECT version FROM public.typetiles_schema_migrations WHERE version = ?", "20261108000100");
       if (!ownership) throw new Error("Apply the Type Tiles classroom ownership migration before starting the backend.");
+      const customDecks = await database.get("SELECT version FROM public.typetiles_schema_migrations WHERE version = ?", "20261123000100");
+      if (!customDecks) throw new Error("Apply the Type Tiles custom decks migration before starting the backend.");
       postgresPool = pool;
       db = database;
       return database;
@@ -170,12 +172,45 @@ async function createTables(db: Database) {
 
   // Additive migration: existing matches and LAN defaults retain word gameplay.
   const matchColumns = await db.all<{ name: string }[]>("PRAGMA table_info(matches)");
+
+  await db.exec(`
+    CREATE TABLE IF NOT EXISTS custom_decks (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      teacher_user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      name TEXT NOT NULL,
+      practice_format TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'active',
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      CHECK (status IN ('active', 'archived'))
+    );
+    CREATE INDEX IF NOT EXISTS custom_decks_teacher_status
+      ON custom_decks(teacher_user_id, status);
+
+    CREATE TABLE IF NOT EXISTS custom_deck_items (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      deck_id INTEGER NOT NULL REFERENCES custom_decks(id) ON DELETE CASCADE,
+      prompt TEXT,
+      answer TEXT NOT NULL,
+      sort_order INTEGER NOT NULL,
+      UNIQUE (deck_id, sort_order)
+    );
+    CREATE INDEX IF NOT EXISTS custom_deck_items_deck_order
+      ON custom_deck_items(deck_id, sort_order);
+  `);
+
   if (!matchColumns.some((column) => column.name === "owner_user_id")) {
     // Historical ownership is unknown; never infer it from participation.
     await db.exec("ALTER TABLE matches ADD COLUMN owner_user_id INTEGER REFERENCES users(id)");
   }
   if (!matchColumns.some((column) => column.name === "practice_format")) {
     await db.exec("ALTER TABLE matches ADD COLUMN practice_format TEXT NOT NULL DEFAULT 'word-phrase'");
+  }
+  if (!matchColumns.some((column) => column.name === "custom_deck_id")) {
+    await db.exec("ALTER TABLE matches ADD COLUMN custom_deck_id INTEGER REFERENCES custom_decks(id) ON DELETE SET NULL");
+  }
+  if (!matchColumns.some((column) => column.name === "custom_deck_snapshot")) {
+    await db.exec("ALTER TABLE matches ADD COLUMN custom_deck_snapshot TEXT");
   }
 
   // Match participants table

@@ -5,6 +5,7 @@ import type { ApplicationDatabase, DatabasePool, DatabaseQueryResult } from "./d
 const ID_TABLES = new Set([
   "users", "email_verification_codes", "password_reset_codes", "user_stats",
   "matches", "match_participants", "match_results", "admin_logs", "feedback",
+  "custom_decks", "custom_deck_items",
 ]);
 
 // Routes use positional ? parameters for both providers. Leave quoted values,
