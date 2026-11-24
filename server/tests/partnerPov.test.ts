@@ -112,6 +112,7 @@ test("partner POV updates reach only assigned partners and reject oversized upda
   const studentThree = await createUser("pov-three", "student");
   const server = createServer();
   const lan = attachLanServer(server);
+  let restoreDatabaseRun: (() => void) | undefined;
   try {
     server.listen(0, "127.0.0.1"); await once(server, "listening");
     const address = server.address(); assert(address && typeof address !== "string");
@@ -132,6 +133,9 @@ test("partner POV updates reach only assigned partners and reject oversized upda
     await hostPeer.wait("room_state", message => message.players.filter((player: any) => !player.isHost).every((player: any) => player.ready));
     hostPeer.send({ type: "start_game" });
     await hostPeer.wait("room_started");
+    const startedOne = await peerOne.wait("room_started");
+    const startedTwo = await peerTwo.wait("room_started");
+    assert.equal(startedOne.startAt, startedTwo.startAt);
     const assignmentOne = await peerOne.wait("partner_assignment");
     const assignmentTwo = await peerTwo.wait("partner_assignment");
     const assignmentThree = await peerThree.wait("partner_assignment");
@@ -139,35 +143,181 @@ test("partner POV updates reach only assigned partners and reject oversized upda
     assert.equal(assignmentTwo.partner.userId, studentOne.id);
     assert.equal(assignmentThree.partner, null);
 
+    const latencySamples: number[] = [];
+    const messageSizes: number[] = [];
+    const sentTimestamps: number[] = [];
+    const startedAt = Date.now();
+    let partnerUpdate: any;
+    for (let index = 0; index < 10; index += 1) {
+      if (index > 0) {
+        const targetSendAt = startedAt + index * 100;
+        const waitMs = targetSendAt - Date.now();
+        if (waitMs > 0) await new Promise(resolve => setTimeout(resolve, waitMs));
+      }
+      const sentAt = Date.now();
+      sentTimestamps.push(sentAt);
+      const update = {
+        type: "partner_pov_update",
+        roomCode,
+        sentAt,
+        target: "invoice",
+        typedPrefix: "inv",
+        score: index * 10,
+        wpm: 24,
+        accuracy: 99,
+        lives: 2,
+        completedWords: index,
+        tileX: 0.25,
+        tileY: 0.6 + index * 0.001,
+        remainingTime: 25,
+        status: "playing",
+        tiles: [{
+          id: "tile-1",
+          text: "invoice",
+          typedPrefix: "inv",
+          x: 0.25,
+          y: 0.6 + index * 0.001,
+          speed: 0.08,
+          state: "active",
+        }],
+      };
+      messageSizes.push(Buffer.byteLength(JSON.stringify(update)));
+      peerOne.send(update);
+      partnerUpdate = await peerTwo.wait("partner_pov_update", message => message.state.sentAt === sentAt);
+      latencySamples.push(Date.now() - sentAt);
+    }
+    const measuredHz = 9 / ((sentTimestamps[sentTimestamps.length - 1] - sentTimestamps[0]) / 1000);
+    const averageMessageBytes = Math.round(messageSizes.reduce((sum, size) => sum + size, 0) / messageSizes.length);
+    const averageRelayLatencyMs = Math.round(latencySamples.reduce((sum, latency) => sum + latency, 0) / latencySamples.length);
+    assert.ok(measuredHz >= 7 && measuredHz <= 12, `Expected approximately 10 updates/sec, received ${measuredHz.toFixed(1)}`);
+    assert.ok(averageMessageBytes < 4096);
+    console.log("[PartnerPOV perf test]", {
+      updateHz: Number(measuredHz.toFixed(1)),
+      averageMessageBytes,
+      averageSenderToReceiverMs: averageRelayLatencyMs,
+    });
+    assert.equal(partnerUpdate.state.userId, studentOne.id);
+    assert.equal(partnerUpdate.state.target, "invoice");
+    assert.equal(partnerUpdate.state.score, 90);
+    assert.equal(partnerUpdate.state.wpm, 24);
+    assert.equal(partnerUpdate.state.accuracy, 99);
+    assert.equal(partnerUpdate.state.lives, 2);
+    assert.equal(partnerUpdate.state.completedWords, 9);
+    assert.equal(partnerUpdate.state.remainingTime, 25);
+    assert.equal(partnerUpdate.state.tiles[0].id, "tile-1");
+    assert.equal(partnerUpdate.state.tiles[0].typedPrefix, "inv");
+    assert.ok(Number.isFinite(partnerUpdate.state.relayedAt));
+    assert.ok(partnerUpdate.state.relayedAt >= partnerUpdate.state.sentAt);
+    assert.equal(peerThree.messages.some(message => message.type === "partner_pov_update"), false);
+
+    peerTwo.socket.close();
+    await once(peerTwo.socket, "close");
+    const reconnectedPeerTwo = await Peer.open(url, studentTwo.token);
+    peers.push(reconnectedPeerTwo);
+    reconnectedPeerTwo.send({ type: "join_room", roomCode });
+    await reconnectedPeerTwo.wait("room_joined");
+    await reconnectedPeerTwo.wait("room_started");
+    const restoredAssignment = await reconnectedPeerTwo.wait("partner_assignment");
+    const restoredState = await reconnectedPeerTwo.wait("partner_pov_update");
+    assert.equal(restoredAssignment.partner.userId, studentOne.id);
+    assert.equal(restoredState.state.userId, studentOne.id);
+    assert.equal(restoredState.state.tiles[0].y, 0.609);
+    await new Promise(resolve => setTimeout(resolve, 70));
+
+    const originalRun = db.run.bind(db);
+    let markDelayedWriteStarted!: () => void;
+    const delayedWriteStarted = new Promise<void>(resolve => { markDelayedWriteStarted = resolve; });
+    let delayedWrite = false;
+    let delayedWriteCompleted = false;
+    db.run = async (sql, ...params) => {
+      if (!delayedWrite && sql.includes("UPDATE match_participants")) {
+        delayedWrite = true;
+        markDelayedWriteStarted();
+        await new Promise(resolve => setTimeout(resolve, 400));
+        delayedWriteCompleted = true;
+      }
+      return originalRun(sql, ...params);
+    };
+    restoreDatabaseRun = () => { db.run = originalRun; };
+    peerOne.send({ type: "score_update", roomCode, score: 100, wpm: 25, accuracy: 99, lives: 2, completedWords: 10, finished: false });
+    await delayedWriteStarted;
+    const delayedSnapshotSentAt = Date.now();
     peerOne.send({
       type: "partner_pov_update",
       roomCode,
-      target: "invoice",
-      typedPrefix: "inv",
-      tileX: 0.25,
-      tileY: 0.6,
-      remainingTime: 25,
+      sentAt: delayedSnapshotSentAt,
+      target: "appointment",
+      typedPrefix: "app",
+      score: 120,
+      wpm: 26,
+      accuracy: 99,
+      lives: 2,
+      completedWords: 12,
+      tileX: 0.4,
+      tileY: 0.7,
+      remainingTime: 24,
       status: "playing",
       tiles: [{
-        id: "tile-1",
-        text: "invoice",
-        typedPrefix: "inv",
-        x: 0.25,
-        y: 0.6,
+        id: "tile-2",
+        text: "appointment",
+        typedPrefix: "app",
+        x: 0.4,
+        y: 0.7,
         speed: 0.08,
         state: "active",
       }],
     });
-    const partnerUpdate = await peerTwo.wait("partner_pov_update");
-    assert.equal(partnerUpdate.state.userId, studentOne.id);
-    assert.equal(partnerUpdate.state.target, "invoice");
-    assert.equal(partnerUpdate.state.tiles[0].id, "tile-1");
-    assert.equal(partnerUpdate.state.tiles[0].typedPrefix, "inv");
-    assert.equal(peerThree.messages.some(message => message.type === "partner_pov_update"), false);
+    const duringDatabaseWrite = await reconnectedPeerTwo.wait(
+      "partner_pov_update",
+      message => message.state.sentAt === delayedSnapshotSentAt,
+    );
+    assert.equal(duringDatabaseWrite.state.tiles[0].text, "appointment");
+    assert.equal(duringDatabaseWrite.state.score, 120);
+    assert.equal(duringDatabaseWrite.state.remainingTime, 24);
+    assert.equal(delayedWriteCompleted, false, "Partner updates must not wait behind database score writes.");
+    await new Promise(resolve => setTimeout(resolve, 450));
+    assert.equal(delayedWriteCompleted, true);
+    restoreDatabaseRun();
+    restoreDatabaseRun = undefined;
 
-    peerOne.send({ type: "partner_pov_update", roomCode, target: "x".repeat(600), typedPrefix: "", tileX: 0.2, tileY: 0.2, remainingTime: 20, status: "playing" });
+    const reverseSentAt = Date.now();
+    reconnectedPeerTwo.send({
+      type: "partner_pov_update",
+      roomCode,
+      sentAt: reverseSentAt,
+      target: "greeting",
+      typedPrefix: "g",
+      score: 34,
+      wpm: 17,
+      accuracy: 95,
+      lives: 1,
+      completedWords: 4,
+      tileX: 0.6,
+      tileY: 0.3,
+      remainingTime: 23,
+      status: "playing",
+      tiles: [{
+        id: "tile-3",
+        text: "greeting",
+        typedPrefix: "g",
+        x: 0.6,
+        y: 0.3,
+        speed: 0.1,
+        state: "active",
+      }],
+    });
+    const reverseUpdate = await peerOne.wait(
+      "partner_pov_update",
+      message => message.state.sentAt === reverseSentAt,
+    );
+    assert.equal(reverseUpdate.state.userId, studentTwo.id);
+    assert.equal(reverseUpdate.state.score, 34);
+    assert.equal(reverseUpdate.state.tiles[0].text, "greeting");
+
+    peerOne.send({ type: "partner_pov_update", roomCode, sentAt: Date.now(), target: "x".repeat(600), typedPrefix: "", tileX: 0.2, tileY: 0.2, remainingTime: 20, status: "playing" });
     await peerOne.wait("error", message => /Invalid partner preview update/.test(message.message));
   } finally {
+    restoreDatabaseRun?.();
     for (const peer of peers) peer.socket.terminate();
     await new Promise<void>(resolve => lan.close(() => resolve()));
     await new Promise<void>(resolve => server.close(() => resolve()));

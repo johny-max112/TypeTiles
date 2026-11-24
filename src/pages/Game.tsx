@@ -13,7 +13,7 @@ import {
 import { usePlayerAuth } from "../lib/PlayerAuthContext";
 import { getProfileBackground } from "../lib/profileAssets";
 import type { ClassroomRankUpdate, ClassroomStanding } from "../lib/classroomTypes";
-import type { PartnerPovState } from "../lib/classroomTypes";
+import type { PartnerPovSnapshot, PartnerPovState } from "../lib/classroomTypes";
 import { PartnerPovPreview } from "../components/PartnerPovPreview";
 import { getBackendEndpoints, CLASSROOM_ROOM_KEY, CLASSROOM_ENDPOINT_KEY } from "../lib/endpoints";
 
@@ -29,6 +29,14 @@ type Props = {
   startAt?: number;
   backgroundId?: string;
 };
+
+function sendScoreUpdate(socket: WebSocket, roomCode: string, performance: GamePerformance): void {
+  socket.send(JSON.stringify({
+    type: "score_update",
+    roomCode,
+    ...performance,
+  }));
+}
 
 export default function Game({
   mode = "solo",
@@ -48,7 +56,22 @@ export default function Game({
   const joinedRoomRef = useRef(false);
   const latestPerformanceRef =
     useRef<GamePerformance | null>(null);
-  const partnerSendRef = useRef<number>(0);
+  const partnerPovRef = useRef<PartnerPovSnapshot | null>(null);
+  const scoreUpdateRef = useRef({ sentAt: 0, signature: "" });
+  const partnerPovDiagnosticsRef = useRef({
+    snapshotsGenerated: 0,
+    outgoingCount: 0,
+    incomingCount: 0,
+    incomingActiveTileCount: 0,
+    incomingSenderId: 0,
+    incomingScore: 0,
+    incomingRemainingTime: 0,
+    lastIncomingSnapshotTimestamp: 0,
+    outgoingActiveTileCount: 0,
+    outgoingScore: 0,
+    outgoingRemainingTime: 0,
+    lastOutgoingSnapshotTimestamp: 0,
+  });
 
   const [multiplayerResult, setMultiplayerResult] =
     useState<GameResult | null>(null);
@@ -59,7 +82,8 @@ export default function Game({
   const [classroomError, setClassroomError] = useState("");
   const [partnerAssignment, setPartnerAssignment] = useState<{ userId: number; displayName: string } | null>(null);
   const [partnerAssignmentResolved, setPartnerAssignmentResolved] = useState(false);
-  const [partnerPov, setPartnerPov] = useState<PartnerPovState | null>(null);
+  const partnerAssignmentRef = useRef(partnerAssignment);
+  partnerAssignmentRef.current = partnerAssignment;
 
   const currentUserRank = useMemo(() => {
     if (!classroomResults || user?.id === undefined) {
@@ -90,8 +114,34 @@ export default function Game({
 
     let disposed = false;
     let reconnectTimer: ReturnType<typeof setTimeout> | undefined;
-    let partnerPovTimer: ReturnType<typeof setInterval> | undefined;
     let reconnectAttempts = 0;
+    const diagnosticsTimer = import.meta.env.DEV
+      ? window.setInterval(() => {
+          const stats = partnerPovDiagnosticsRef.current;
+          console.debug("[PartnerPOV] client", {
+            matchId: `${roomCode}:${startAt ?? "pending"}`,
+            roomId: roomCode,
+            outgoingSenderId: user?.id ?? null,
+            outgoingRecipientId: partnerAssignmentRef.current?.userId ?? null,
+            incomingSenderId: stats.incomingSenderId || null,
+            incomingRecipientId: user?.id ?? null,
+            snapshotGeneratedCount: stats.snapshotsGenerated,
+            outgoingMessageCount: stats.outgoingCount,
+            incomingMessageCount: stats.incomingCount,
+            incomingActiveTileCount: stats.incomingActiveTileCount,
+            incomingScore: stats.incomingScore,
+            incomingRemainingTime: stats.incomingRemainingTime,
+            lastIncomingSnapshotTimestamp: stats.lastIncomingSnapshotTimestamp,
+            outgoingActiveTileCount: stats.outgoingActiveTileCount,
+            outgoingScore: stats.outgoingScore,
+            outgoingRemainingTime: stats.outgoingRemainingTime,
+            lastOutgoingSnapshotTimestamp: stats.lastOutgoingSnapshotTimestamp,
+          });
+          stats.snapshotsGenerated = 0;
+          stats.outgoingCount = 0;
+          stats.incomingCount = 0;
+        }, 5000)
+      : undefined;
     const connect = () => {
       let socket: WebSocket;
       try { socket = new WebSocket(webSocketUrl); }
@@ -124,7 +174,7 @@ export default function Game({
         if (message.type === "partner_assignment") {
           setPartnerAssignment(message.partner ?? null);
           setPartnerAssignmentResolved(true);
-          setPartnerPov(null);
+          partnerPovRef.current = null;
         }
         if (message.type === "room_started" && "partner" in message) {
           const started = message as { partner?: { userId: number; displayName: string } | null };
@@ -132,8 +182,23 @@ export default function Game({
           setPartnerAssignmentResolved(true);
         }
         if (message.type === "partner_pov_update" && message.state) {
-          if (import.meta.env.DEV) console.debug("[PartnerPOV] incoming", message.state.userId, message.state.tiles.length);
-          setPartnerPov(message.state);
+          const ageAtArrival = Number.isFinite(message.state.sentAt)
+            ? Math.max(0, Math.min(250, Date.now() - message.state.sentAt))
+            : 0;
+          const diagnostics = partnerPovDiagnosticsRef.current;
+          diagnostics.incomingCount += 1;
+          diagnostics.incomingActiveTileCount = message.state.tiles.filter(tile => tile.state === "active").length;
+          diagnostics.incomingSenderId = message.state.userId;
+          diagnostics.incomingScore = message.state.score;
+          diagnostics.incomingRemainingTime = message.state.remainingTime;
+          diagnostics.lastIncomingSnapshotTimestamp = message.state.sentAt;
+          partnerPovRef.current = {
+            state: message.state,
+            receivedAt: performance.now() - ageAtArrival,
+            messageBytes: import.meta.env.DEV && typeof event.data === "string"
+              ? new TextEncoder().encode(event.data).byteLength
+              : 0,
+          };
         }
 
         if (message.type === "rank_update") {
@@ -146,38 +211,24 @@ export default function Game({
           joinedRoomRef.current = true;
           reconnectAttempts = 0;
           setClassroomError("");
-          clearInterval(partnerPovTimer);
-          partnerPovTimer = setInterval(() => {
-            if (disposed || socket.readyState !== WebSocket.OPEN) return;
-            const performance = latestPerformanceRef.current;
-            if (!performance || performance.finished) return;
-            if (import.meta.env.DEV) console.debug("[PartnerPOV] outgoing", performance.tiles?.length ?? 0);
-            socket.send(JSON.stringify({
-              type: "partner_pov_update",
-              roomCode,
-              target: performance.target ?? "",
-              typedPrefix: performance.typedPrefix ?? "",
-              tileX: performance.tileX ?? 0,
-              tileY: performance.tileY ?? 0,
-              remainingTime: performance.remainingTime ?? 0,
-              status: performance.status ?? "playing",
-              tiles: performance.tiles ?? [],
-            }));
-          }, 100);
-
           if (latestPerformanceRef.current) {
-            socket.send(
-              JSON.stringify({
-                type: "score_update",
-                roomCode,
-                ...latestPerformanceRef.current,
-              })
-            );
             const performance = latestPerformanceRef.current;
+            const sentAt = Date.now();
+            sendScoreUpdate(socket, roomCode, performance);
+            scoreUpdateRef.current = {
+              sentAt: Date.now(),
+              signature: `${performance.score}:${performance.lives}:${performance.completedWords}:${performance.finished}`,
+            };
             socket.send(
               JSON.stringify({
                 type: "partner_pov_update",
                 roomCode,
+                sentAt,
+                score: performance.score,
+                wpm: performance.wpm,
+                accuracy: performance.accuracy,
+                lives: performance.lives,
+                completedWords: performance.completedWords,
                 target: performance.target ?? "",
                 typedPrefix: performance.typedPrefix ?? "",
                 tileX: performance.tileX ?? 0,
@@ -187,6 +238,12 @@ export default function Game({
                 tiles: performance.tiles ?? [],
               })
             );
+            partnerPovDiagnosticsRef.current.outgoingCount += 1;
+            partnerPovDiagnosticsRef.current.outgoingActiveTileCount =
+              (performance.tiles ?? []).filter(tile => tile.state === "active").length;
+            partnerPovDiagnosticsRef.current.outgoingScore = performance.score;
+            partnerPovDiagnosticsRef.current.outgoingRemainingTime = performance.remainingTime ?? 0;
+            partnerPovDiagnosticsRef.current.lastOutgoingSnapshotTimestamp = sentAt;
           }
         }
 
@@ -230,7 +287,7 @@ export default function Game({
     return () => {
       disposed = true;
       clearTimeout(reconnectTimer);
-      clearInterval(partnerPovTimer);
+      if (diagnosticsTimer !== undefined) window.clearInterval(diagnosticsTimer);
       socketRef.current?.close();
       socketRef.current = null;
       joinedRoomRef.current = false;
@@ -247,6 +304,12 @@ export default function Game({
     performance: GamePerformance
   ) => {
     latestPerformanceRef.current = performance;
+    const diagnostics = partnerPovDiagnosticsRef.current;
+    diagnostics.snapshotsGenerated += 1;
+    diagnostics.outgoingActiveTileCount =
+      (performance.tiles ?? []).filter(tile => tile.state === "active").length;
+    diagnostics.outgoingScore = performance.score;
+    diagnostics.outgoingRemainingTime = performance.remainingTime ?? 0;
 
     if (
       socketRef.current?.readyState !==
@@ -257,21 +320,24 @@ export default function Game({
       return;
     }
 
-    socketRef.current.send(
-      JSON.stringify({
-        type: "score_update",
-        roomCode,
-        ...performance,
-      })
-    );
-
     const now = Date.now();
-    if (now - partnerSendRef.current < 100) return;
-    partnerSendRef.current = now;
+    const signature = `${performance.score}:${performance.lives}:${performance.completedWords}:${performance.finished}`;
+    if (signature !== scoreUpdateRef.current.signature || now - scoreUpdateRef.current.sentAt >= 1000) {
+      sendScoreUpdate(socketRef.current, roomCode, performance);
+      scoreUpdateRef.current = { sentAt: now, signature };
+    }
+
+    if (socketRef.current.bufferedAmount > 4096) return;
     socketRef.current.send(
       JSON.stringify({
         type: "partner_pov_update",
         roomCode,
+        sentAt: now,
+        score: performance.score,
+        wpm: performance.wpm,
+        accuracy: performance.accuracy,
+        lives: performance.lives,
+        completedWords: performance.completedWords,
         target: performance.target ?? "",
         typedPrefix: performance.typedPrefix ?? "",
         tileX: performance.tileX ?? 0,
@@ -281,6 +347,8 @@ export default function Game({
         tiles: performance.tiles ?? [],
       })
     );
+    diagnostics.outgoingCount += 1;
+    diagnostics.lastOutgoingSnapshotTimestamp = now;
   };
 
   const handleGameOver = async (
@@ -415,7 +483,15 @@ export default function Game({
           </div>
           {mode === "multiplayer" ? (
             partnerAssignmentResolved ? (
-              <PartnerPovPreview partner={partnerPov} assignment={partnerAssignment} />
+            <PartnerPovPreview
+              snapshotRef={partnerPovRef}
+              assignment={partnerAssignment}
+              roomId={roomCode ?? ""}
+              matchId={`${roomCode ?? ""}:${startAt ?? "pending"}`}
+              viewerUserId={user?.id}
+              startAt={startAt}
+              roundTime={matchConfig.roundTime}
+            />
             ) : (
               <aside className="flex min-h-[190px] shrink-0 flex-col items-center justify-center rounded-2xl border border-white/10 bg-slate-950/85 p-4 text-center text-white lg:h-full lg:w-[35%]" aria-label="Partner gameplay preview">
                 <div className="text-xs uppercase tracking-[0.25em] text-slate-400">Partner POV</div>

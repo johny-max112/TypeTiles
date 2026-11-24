@@ -30,6 +30,8 @@ export type PartnerPovTile = {
 export type PartnerPovState = {
   userId: number;
   displayName: string;
+  sentAt: number;
+  relayedAt: number;
   target: string;
   typedPrefix: string;
   tileX: number;
@@ -42,6 +44,12 @@ export type PartnerPovState = {
   remainingTime: number;
   completedWords: number;
   status: "playing" | "paused" | "completed" | "disconnected";
+};
+
+export type PartnerPovSnapshot = {
+  state: PartnerPovState;
+  receivedAt: number;
+  messageBytes: number;
 };
 
 export type PartnerAssignment = {

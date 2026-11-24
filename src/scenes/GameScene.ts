@@ -101,7 +101,8 @@ export default class GameScene extends Phaser.Scene {
   private onPerformance?: (performance: GamePerformance) => void;
   private onRestart?: () => void;
   private onExit?: () => void;
-  private lastPerformanceReportSecond = -1;
+  private lastPerformanceReportAt = 0;
+  private matchStartAt?: number;
   private gameMode: GameMode = "solo";
   private multiplayerWordSequence: string[] = [];
   private multiplayerWordIndex = 0;
@@ -141,7 +142,7 @@ export default class GameScene extends Phaser.Scene {
     super("GameScene");
   }
 
-  init({ mode = "solo", matchConfig, onGameOver, onPerformance, onRestart, onExit, wordSequence }: GameSceneInitData): void {
+  init({ mode = "solo", matchConfig, onGameOver, onPerformance, onRestart, onExit, wordSequence, startAt }: GameSceneInitData): void {
     this.gameMode = mode;
     this.multiplayerWordSequence = wordSequence && wordSequence.length > 0 ? [...new Set(wordSequence)] : [];
     this.multiplayerWordIndex = 0;
@@ -150,6 +151,8 @@ export default class GameScene extends Phaser.Scene {
     this.onPerformance = onPerformance;
     this.onRestart = onRestart;
     this.onExit = onExit;
+    this.matchStartAt = startAt;
+    this.lastPerformanceReportAt = 0;
     this.matchDurationSeconds = matchConfig.roundTime;
     this.remainingSeconds = this.matchDurationSeconds;
     this.difficultyKey = this.getDifficultyKey(matchConfig.difficulty);
@@ -343,7 +346,15 @@ export default class GameScene extends Phaser.Scene {
     if (this.pauseMenu.isPaused || this.gameOver) return;
 
     const dt = delta / 1000;
-    this.elapsedSeconds = Math.min(this.matchDurationSeconds, this.elapsedSeconds + dt);
+    if (this.gameMode === "multiplayer" && this.matchStartAt !== undefined) {
+      if (Date.now() < this.matchStartAt) return;
+      this.elapsedSeconds = Math.max(
+        this.elapsedSeconds,
+        Math.min(this.matchDurationSeconds, (Date.now() - this.matchStartAt) / 1000),
+      );
+    } else {
+      this.elapsedSeconds = Math.min(this.matchDurationSeconds, this.elapsedSeconds + dt);
+    }
     this.remainingSeconds = Math.max(0, this.matchDurationSeconds - this.elapsedSeconds);
     this.updateHud();
     this.reportPerformance();
@@ -750,8 +761,9 @@ export default class GameScene extends Phaser.Scene {
 
   private reportPerformance(force = false): void {
     if (this.gameMode !== "multiplayer" || !this.onPerformance) return;
-    if (!force && Math.floor(this.elapsedSeconds) <= this.lastPerformanceReportSecond) return;
-    this.lastPerformanceReportSecond = Math.floor(this.elapsedSeconds);
+    const now = Date.now();
+    if (!force && now - this.lastPerformanceReportAt < 100) return;
+    this.lastPerformanceReportAt = now;
 
     const elapsedMinutes = this.elapsedSeconds / 60;
     const totalKeystrokes = this.correctKeystrokes + this.incorrectKeystrokes;

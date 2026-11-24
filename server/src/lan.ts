@@ -13,6 +13,7 @@ import { completeClassroomMatch, cancelClassroomMatch } from "./classroomPersist
 export const DEFAULT_MAX_STUDENTS = 50;
 const STANDINGS_INTERVAL_MS = 250;
 const COUNTDOWN_DELAY_MS = 3000;
+const PARTNER_POV_MIN_INTERVAL_MS = 60;
 
 type ClientMessage = {
   type: "create_room" | "join_room" | "leave_room" | "cancel_room" | "update_match_config" | "ready" | "start_game" | "score_update" | "partner_pov_update";
@@ -38,6 +39,7 @@ type ClientMessage = {
   tileX?: number;
   tileY?: number;
   remainingTime?: number;
+  sentAt?: number;
   status?: "playing" | "paused" | "completed";
   tiles?: unknown[];
 };
@@ -54,6 +56,17 @@ type Player = {
   token?: string;
   pendingToken?: string;
   performance?: PlayerPerformance;
+  lastPartnerPovUpdateAt?: number;
+};
+
+type PartnerPovDiagnosticWindow = {
+  startedAt: number;
+  received: number;
+  relayed: number;
+  tileCount: number;
+  score: number;
+  remainingTime: number;
+  sentAt: number;
 };
 
 type PlayerPerformance = {
@@ -68,6 +81,8 @@ type PlayerPerformance = {
 type PartnerPovState = {
   userId: number;
   displayName: string;
+  sentAt: number;
+  relayedAt: number;
   target: string;
   typedPrefix: string;
   tileX: number;
@@ -118,6 +133,7 @@ type Room = {
 };
 
 const rooms = new Map<string, Room>();
+const partnerPovDiagnostics = new WeakMap<Player, PartnerPovDiagnosticWindow>();
 
 function send(socket: WebSocket, message: unknown) {
   if (socket.readyState === WebSocket.OPEN) {
@@ -232,12 +248,13 @@ function sendPartnerAssignment(room: Room, student: Player) {
     type: "partner_assignment",
     partner: partnerAssignment(room, student.userId),
   });
-  if (room.partnerStates.has(student.userId)) {
-    const partnerId = room.partnerByUserId.get(student.userId);
-    if (partnerId) {
-      const state = room.partnerStates.get(partnerId);
-      if (state) send(student.socket, { type: "partner_pov_update", state });
-    }
+  const partnerId = room.partnerByUserId.get(student.userId);
+  if (partnerId) {
+    const state = room.partnerStates.get(partnerId);
+    if (state) send(student.socket, {
+      type: "partner_pov_update",
+      state: { ...state, relayedAt: Date.now() },
+    });
   }
 }
 
@@ -253,6 +270,8 @@ function forwardPartnerStatus(room: Room, player: Player, status: "disconnected"
       : {
           userId: player.userId,
           displayName: player.displayName || player.name,
+          sentAt: Date.now(),
+          relayedAt: Date.now(),
           target: "",
           typedPrefix: "",
           tileX: 0,
@@ -271,12 +290,172 @@ function forwardPartnerStatus(room: Room, player: Player, status: "disconnected"
   if (status === "playing") {
     const current = room.partnerStates.get(player.userId);
     if (current?.status === "disconnected") {
-      room.partnerStates.set(player.userId, { ...current, status: "playing" as const });
+      room.partnerStates.set(player.userId, {
+        ...current,
+        status: "playing" as const,
+        relayedAt: Date.now(),
+      });
     }
   }
   const state = room.partnerStates.get(player.userId);
   if (partner.socket.readyState === WebSocket.OPEN && state) {
     send(partner.socket, { type: "partner_pov_update", state });
+  }
+}
+
+function processPartnerPovUpdate(player: Player, message: ClientMessage, receivedAt: number): void {
+  if (!player.token || !player.userId || player.role !== "student") return;
+  const identity = verifyToken(player.token);
+  if (!identity || identity.userId !== player.userId || normalizeRole(identity.role) !== "student") {
+    send(player.socket, { type: "error", message: "The classroom session is no longer valid." });
+    return;
+  }
+
+  const room = [...rooms.values()].find(candidate =>
+    candidate.players.get(player.id) === player
+    && candidate.students.get(player.userId!) === player);
+  if (!room || !room.started || room.classroomResultsSent || room.finalization || room.closing) return;
+  if (message.roomCode && message.roomCode !== room.code) {
+    send(player.socket, { type: "error", message: "Partner preview room does not match the active room." });
+    return;
+  }
+
+  const partnerId = room.partnerByUserId.get(player.userId);
+  const partner = partnerId === undefined ? undefined : room.students.get(partnerId);
+  if (!partnerId || !partner || partner.userId !== partnerId) return;
+  if (typeof message.target !== "string" || typeof message.typedPrefix !== "string"
+    || message.target.length > 500 || message.typedPrefix.length > 500) {
+    send(player.socket, { type: "error", message: "Invalid partner preview update." });
+    return;
+  }
+  const { tileX, tileY, remainingTime, sentAt } = message;
+  if (typeof tileX !== "number" || typeof tileY !== "number" || typeof remainingTime !== "number"
+    || !Number.isFinite(tileX) || !Number.isFinite(tileY) || tileX < 0 || tileX > 1 || tileY < 0 || tileY > 1
+    || !Number.isInteger(remainingTime) || remainingTime < 0 || remainingTime > room.roundTime
+    || typeof sentAt !== "number" || !Number.isFinite(sentAt) || sentAt <= 0
+    || typeof message.status !== "string" || !["playing", "paused", "completed"].includes(message.status)) {
+    send(player.socket, { type: "error", message: "Invalid partner preview update." });
+    return;
+  }
+  if (!Array.isArray(message.tiles) || message.tiles.length > 4) {
+    send(player.socket, { type: "error", message: "Invalid partner preview tiles." });
+    return;
+  }
+
+  const performance = player.performance;
+  const score = message.score ?? performance?.score ?? 0;
+  const wpm = message.wpm ?? performance?.wpm ?? 0;
+  const accuracy = message.accuracy ?? performance?.accuracy ?? 0;
+  const lives = message.lives ?? performance?.lives ?? 3;
+  const completedWords = message.completedWords ?? performance?.completedWords ?? 0;
+  if (typeof score !== "number" || typeof wpm !== "number" || typeof accuracy !== "number"
+    || typeof lives !== "number" || typeof completedWords !== "number"
+    || !Number.isFinite(score) || !Number.isFinite(wpm) || !Number.isFinite(accuracy)
+    || !Number.isFinite(lives) || !Number.isFinite(completedWords)
+    || wpm < 0 || accuracy < 0 || accuracy > 100 || !Number.isInteger(lives) || lives < 0 || lives > 3
+    || !Number.isInteger(completedWords) || completedWords < 0) {
+    send(player.socket, { type: "error", message: "Invalid partner preview metrics." });
+    return;
+  }
+
+  const tiles: PartnerPovState["tiles"] = [];
+  for (const rawTile of message.tiles) {
+    if (!rawTile || typeof rawTile !== "object") {
+      send(player.socket, { type: "error", message: "Invalid partner preview tile." });
+      return;
+    }
+    const tile = rawTile as Record<string, unknown>;
+    if (typeof tile.id !== "string" || tile.id.length > 64
+      || typeof tile.text !== "string" || tile.text.length > 500
+      || typeof tile.typedPrefix !== "string" || tile.typedPrefix.length > 500
+      || typeof tile.x !== "number" || typeof tile.y !== "number" || typeof tile.speed !== "number"
+      || !Number.isFinite(tile.x) || !Number.isFinite(tile.y) || !Number.isFinite(tile.speed)
+      || tile.x < 0 || tile.x > 1 || tile.y < 0 || tile.y > 1 || tile.speed < 0 || tile.speed > 2
+      || typeof tile.state !== "string" || !["active", "cleared", "missed"].includes(tile.state)) {
+      send(player.socket, { type: "error", message: "Invalid partner preview tile." });
+      return;
+    }
+    tiles.push({
+      id: tile.id,
+      text: tile.text,
+      typedPrefix: tile.typedPrefix,
+      x: tile.x,
+      y: tile.y,
+      speed: tile.speed,
+      state: tile.state as "active" | "cleared" | "missed",
+    });
+  }
+
+  if (player.lastPartnerPovUpdateAt !== undefined
+    && receivedAt - player.lastPartnerPovUpdateAt < PARTNER_POV_MIN_INTERVAL_MS) {
+    send(player.socket, {
+      type: "error",
+      code: "PARTNER_POV_RATE_LIMITED",
+      message: "Partner preview updates are arriving too quickly.",
+    });
+    return;
+  }
+  player.lastPartnerPovUpdateAt = receivedAt;
+
+  const state: PartnerPovState = {
+    userId: player.userId,
+    displayName: player.displayName || player.name,
+    sentAt,
+    relayedAt: Date.now(),
+    target: message.target,
+    typedPrefix: message.typedPrefix,
+    tileX,
+    tileY,
+    tiles,
+    lives,
+    score,
+    wpm,
+    accuracy,
+    remainingTime,
+    completedWords,
+    status: message.status,
+  };
+  room.partnerStates.set(player.userId, state);
+
+  if (partner.socket.readyState === WebSocket.OPEN) {
+    send(partner.socket, { type: "partner_pov_update", state });
+  }
+
+  if (process.env.NODE_ENV !== "production") {
+    const now = Date.now();
+    const diagnostic = partnerPovDiagnostics.get(player) ?? {
+      startedAt: now,
+      received: 0,
+      relayed: 0,
+      tileCount: 0,
+      score: 0,
+      remainingTime: 0,
+      sentAt: 0,
+    };
+    diagnostic.received += 1;
+    if (partner.socket.readyState === WebSocket.OPEN) diagnostic.relayed += 1;
+    diagnostic.tileCount = tiles.filter(tile => tile.state === "active").length;
+    diagnostic.score = score;
+    diagnostic.remainingTime = remainingTime;
+    diagnostic.sentAt = sentAt;
+    if (now - diagnostic.startedAt >= 5000) {
+      console.debug("[PartnerPOV] server", {
+        matchId: `${room.code}:${room.startAt ?? "pending"}`,
+        roomId: room.code,
+        senderId: player.userId,
+        recipientId: partnerId,
+        receivedCount: diagnostic.received,
+        relayedCount: diagnostic.relayed,
+        activeTileCount: diagnostic.tileCount,
+        score: diagnostic.score,
+        remainingTime: diagnostic.remainingTime,
+        lastSnapshotTimestamp: diagnostic.sentAt,
+      });
+      diagnostic.startedAt = now;
+      diagnostic.received = 0;
+      diagnostic.relayed = 0;
+    }
+    partnerPovDiagnostics.set(player, diagnostic);
   }
 }
 
@@ -573,20 +752,32 @@ export function attachLanServer(server: import("http").Server,
 
     let messageQueue = Promise.resolve();
     socket.on("message", (raw) => {
-      messageQueue = messageQueue.then(async () => {
-      let message: ClientMessage;
+      const receivedAt = Date.now();
       const rawText = raw.toString();
       if (rawText.length > 4096) {
         send(socket, { type: "error", message: "Message is too large." });
         return;
       }
+      let message: ClientMessage;
       try {
-        message = JSON.parse(rawText) as ClientMessage;
+        const parsed: unknown = JSON.parse(rawText);
+        if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+          send(socket, { type: "error", message: "Message must be a JSON object." });
+          return;
+        }
+        message = parsed as ClientMessage;
       } catch {
         send(socket, { type: "error", message: "Message must be valid JSON" });
         return;
       }
+      if (message.type === "partner_pov_update") {
+        if (socket.readyState === WebSocket.OPEN) {
+          processPartnerPovUpdate(player, message, receivedAt);
+        }
+        return;
+      }
 
+      messageQueue = messageQueue.then(async () => {
       try {
         if (socket.readyState !== WebSocket.OPEN) return;
         if (player.token && !await authenticatePlayer(player.token)) {
@@ -929,83 +1120,6 @@ export function attachLanServer(server: import("http").Server,
           }
           broadcast(room);
           broadcastStandings(room);
-        } else if (message.type === "partner_pov_update") {
-          if (player.role !== "student" || !player.userId || !room.started || room.classroomResultsSent || room.finalization) return;
-          if (message.roomCode && message.roomCode !== room.code) return;
-          const partnerId = room.partnerByUserId.get(player.userId);
-          if (!partnerId) return;
-          const partner = room.students.get(partnerId);
-          if (!partner || partner.userId !== partnerId) return;
-          if (typeof message.target !== "string" || typeof message.typedPrefix !== "string"
-            || message.target.length > 500 || message.typedPrefix.length > 500) {
-            send(socket, { type: "error", message: "Invalid partner preview update." });
-            return;
-          }
-          const target = message.target;
-          const typedPrefix = message.typedPrefix;
-          const tileX = message.tileX;
-          const tileY = message.tileY;
-          const remainingTime = message.remainingTime;
-          if (typeof tileX !== "number" || typeof tileY !== "number" || typeof remainingTime !== "number"
-            || !Number.isFinite(tileX) || !Number.isFinite(tileY) || tileX < 0 || tileX > 1 || tileY < 0 || tileY > 1
-            || !Number.isInteger(remainingTime) || remainingTime < 0 || remainingTime > room.roundTime
-            || typeof message.status !== "string" || !["playing", "paused", "completed"].includes(message.status)) {
-            send(socket, { type: "error", message: "Invalid partner preview update." });
-            return;
-          }
-          if (!Array.isArray(message.tiles) || message.tiles.length > 4) {
-            send(socket, { type: "error", message: "Invalid partner preview tiles." });
-            return;
-          }
-          const tiles: PartnerPovState["tiles"] = [];
-          for (const rawTile of message.tiles as unknown[]) {
-            if (!rawTile || typeof rawTile !== "object") {
-              send(socket, { type: "error", message: "Invalid partner preview tile." });
-              return;
-            }
-            const tile = rawTile as Record<string, unknown>;
-            if (typeof tile.id !== "string" || tile.id.length > 64
-              || typeof tile.text !== "string" || tile.text.length > 500
-              || typeof tile.typedPrefix !== "string" || tile.typedPrefix.length > 500
-              || typeof tile.x !== "number" || typeof tile.y !== "number" || typeof tile.speed !== "number"
-              || !Number.isFinite(tile.x) || !Number.isFinite(tile.y) || !Number.isFinite(tile.speed)
-              || tile.x < 0 || tile.x > 1 || tile.y < 0 || tile.y > 1 || tile.speed < 0 || tile.speed > 2
-              || typeof tile.state !== "string" || !["active", "cleared", "missed"].includes(tile.state)) {
-              send(socket, { type: "error", message: "Invalid partner preview tile." });
-              return;
-            }
-            tiles.push({
-              id: tile.id,
-              text: tile.text,
-              typedPrefix: tile.typedPrefix,
-              x: tile.x,
-              y: tile.y,
-              speed: tile.speed,
-              state: tile.state as "active" | "cleared" | "missed",
-            });
-          }
-          const performance = player.performance;
-          const state: PartnerPovState = {
-            userId: player.userId,
-            displayName: player.displayName || player.name,
-            target,
-            typedPrefix,
-            tileX,
-            tileY,
-            tiles,
-            lives: performance?.lives ?? 3,
-            score: performance?.score ?? 0,
-            wpm: performance?.wpm ?? 0,
-            accuracy: performance?.accuracy ?? 0,
-            remainingTime,
-            completedWords: performance?.completedWords ?? 0,
-            status: message.status,
-          };
-          room.partnerStates.set(player.userId, state);
-          if (partner.socket.readyState === WebSocket.OPEN) {
-            if (process.env.NODE_ENV !== "production") console.debug("[PartnerPOV] relay", room.code, player.userId, partnerId);
-            send(partner.socket, { type: "partner_pov_update", state });
-          }
         } else if (message.type === "score_update") {
           if (player.role !== "student" || !player.userId || !room.started) return;
           if (room.classroomResultsSent || room.finalization || room.closing) return;
