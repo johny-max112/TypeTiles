@@ -30,6 +30,8 @@ export async function initializeDatabase(options: { postgresPool?: DatabasePool 
       if (!ownership) throw new Error("Apply the Type Tiles classroom ownership migration before starting the backend.");
       const customDecks = await database.get("SELECT version FROM public.typetiles_schema_migrations WHERE version = ?", "20261123000100");
       if (!customDecks) throw new Error("Apply the Type Tiles custom decks migration before starting the backend.");
+      const onboarding = await database.get("SELECT version FROM public.typetiles_schema_migrations WHERE version = ?", "20261124000100");
+      if (!onboarding) throw new Error("Apply the Type Tiles first-time onboarding migration before starting the backend.");
       postgresPool = pool;
       db = database;
       return database;
@@ -119,6 +121,14 @@ async function createTables(db: Database) {
     await db.exec("ROLLBACK");
     throw error;
   }
+  await db.exec(`
+    CREATE TABLE IF NOT EXISTS user_onboarding (
+      user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+      status TEXT NOT NULL DEFAULT 'eligible' CHECK (status IN ('eligible', 'completed', 'skipped')),
+      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
   await db.exec(`
     CREATE TABLE IF NOT EXISTS password_reset_codes (
       id INTEGER PRIMARY KEY AUTOINCREMENT,

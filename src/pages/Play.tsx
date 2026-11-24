@@ -48,7 +48,7 @@ export default function Play() {
 
       <div className="mt-6 grid gap-6 lg:grid-cols-3">
         <div>
-          <div className="text-xs uppercase tracking-[0.3em] text-slate-400">Category</div>
+          <div data-tour="practice-categories" className="text-xs uppercase tracking-[0.3em] text-slate-400">Category</div>
           <div className="mt-3 grid gap-2">
             {categories.map((item) => (
               <button key={item} type="button" onClick={() => setCategory(item)} className={`rounded-xl border px-4 py-3 text-left text-white ${category === item ? "border-emerald-400/60 bg-emerald-400/15" : "border-white/10 bg-white/[0.03]"}`}>
@@ -58,10 +58,10 @@ export default function Play() {
           </div>
           {category === "Stenography" ? (
             <GreggModeSelector value={greggSubmode} onChange={setGreggSubmode} />
-          ) : <PracticeFormatSelector value={practiceFormat} onChange={setPracticeFormat} />}
+          ) : <div data-tour="practice-formats"><PracticeFormatSelector value={practiceFormat} onChange={setPracticeFormat} /></div>}
         </div>
 
-        <div>
+        <div data-tour="practice-difficulty">
           <div className="text-xs uppercase tracking-[0.3em] text-slate-400">Difficulty</div>
           <div className="mt-3 space-y-2">
             {difficulties.map((item) => (

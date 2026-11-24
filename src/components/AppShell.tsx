@@ -3,12 +3,14 @@ import { useState } from "react";
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import homeIcon from "../assets/homeicon/home.png";
 import { HudBackground } from "./HudBackground";
+import { OnboardingHost } from "./OnboardingTour";
 import { usePlayerAuth } from "../lib/PlayerAuthContext";
 
 const navItems = [
   { label: "Home", to: "/app", icon: homeIcon, iconClassName: "h-5 w-5", end: true },
   { label: "Multiplayer", to: "/app/lobby", icon: Users, iconClassName: "h-5 w-5" },
   { label: "Results", to: "/app/results", icon: Trophy, iconClassName: "h-5 w-5" },
+  { label: "Leaderboard", to: "/app/leaderboard", icon: Trophy, iconClassName: "h-5 w-5" },
   { label: "Student Progress", to: "/app/student-progress", icon: Users, iconClassName: "h-5 w-5", teacherOnly: true },
   { label: "Custom Decks", to: "/app/custom-decks", icon: Library, iconClassName: "h-5 w-5", teacherOnly: true },
   { label: "Profile", to: "/app/customize", icon: UserRound, iconClassName: "h-5 w-5" },
@@ -37,6 +39,7 @@ export function AppShell() {
   };
 
   return (
+    <OnboardingHost>
     <div className="relative h-screen overflow-hidden text-slate-100">
       <HudBackground />
       <div className={`mx-auto flex h-full min-h-0 max-w-[1600px] gap-4 ${isMatchFlow ? "p-0" : "p-4"} lg:gap-0 lg:p-0`}>
@@ -64,7 +67,7 @@ export function AppShell() {
             </button>
           </div>
 
-          <nav className="space-y-2">
+          <nav data-tour="main-navigation" className="space-y-2">
             {navItems.filter(item => !("teacherOnly" in item) || user?.role === "teacher").map((item) => (
               <NavLink
                 key={item.to}
@@ -99,6 +102,7 @@ export function AppShell() {
           {!isMatchFlow ? <header className="mb-4 flex items-center justify-between rounded-2xl border border-white/10 bg-[#141a3a]/90 px-4 py-3 shadow-[0_24px_50px_rgba(4,8,25,0.35)] backdrop-blur-xl lg:hidden">
             <button
               type="button"
+              data-tour="mobile-menu"
               onClick={() => setOpen((value) => !value)}
               className="inline-flex items-center gap-2 rounded-xl border border-white/10 px-3 py-2 text-sm text-slate-100"
             >
@@ -112,5 +116,6 @@ export function AppShell() {
         </div>
       </div>
     </div>
+    </OnboardingHost>
   );
 }

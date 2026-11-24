@@ -7,6 +7,7 @@ import UsersPage from "./pages/Users";
 import LeaderboardPage from "./pages/Leaderboard";
 import LogsPage from "./pages/Logs";
 import LoginPage from "./pages/Login";
+import { AdminTutorialButton, AdminTutorialProvider } from "./components/AdminTutorial";
 
 interface AuthUser {
   id: number;
@@ -30,24 +31,27 @@ function AdminLayout({ children, onLogout }: { children: React.ReactNode; onLogo
       <nav className="bg-gray-800 border-b border-gray-700">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
           <div className="flex items-center gap-8">
-            <div className="flex items-center gap-2">
+            <div data-tour="admin-brand" className="flex items-center gap-2">
               <Shield className="w-8 h-8 text-blue-400" />
               <span className="text-xl font-bold text-white">TypeTiles Admin</span>
             </div>
-            <div className="flex gap-6">
-              <NavLink to="/dashboard" icon={<BarChart3 />} label="Dashboard" />
-              <NavLink to="/users" icon={<Users />} label="Users" />
-              <NavLink to="/leaderboard" icon={<Activity />} label="Leaderboard" />
-              <NavLink to="/logs" icon={<Shield />} label="Logs" />
+            <div className="flex flex-wrap gap-4">
+              <NavLink to="/dashboard" icon={<BarChart3 />} label="Dashboard" dataTour="admin-dashboard-nav" />
+              <NavLink to="/users" icon={<Users />} label="Users" dataTour="admin-users-nav" />
+              <NavLink to="/leaderboard" icon={<Activity />} label="Leaderboard" dataTour="admin-leaderboard-nav" />
+              <NavLink to="/logs" icon={<Shield />} label="Logs" dataTour="admin-logs-nav" />
             </div>
           </div>
-          <button
-            onClick={handleLogout}
-            className="flex items-center gap-2 px-4 py-2 text-gray-300 hover:text-white transition"
-          >
-            <LogOut className="w-5 h-5" />
-            Logout
-          </button>
+          <div className="flex flex-wrap items-center gap-2">
+            <AdminTutorialButton />
+            <button
+              onClick={handleLogout}
+              className="flex items-center gap-2 px-4 py-2 text-gray-300 hover:text-white transition"
+            >
+              <LogOut className="w-5 h-5" />
+              Logout
+            </button>
+          </div>
         </div>
       </nav>
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">{children}</main>
@@ -55,10 +59,11 @@ function AdminLayout({ children, onLogout }: { children: React.ReactNode; onLogo
   );
 }
 
-function NavLink({ to, icon, label }: { to: string; icon: React.ReactNode; label: string }) {
+function NavLink({ to, icon, label, dataTour }: { to: string; icon: React.ReactNode; label: string; dataTour: string }) {
   return (
     <a
       href={to}
+      data-tour={dataTour}
       className="flex items-center gap-2 text-gray-300 hover:text-blue-400 transition font-medium"
     >
       {icon}
@@ -98,6 +103,7 @@ function App() {
 
   return (
     <BrowserRouter>
+      <AdminTutorialProvider>
       <Routes>
         <Route
           path="/login"
@@ -159,6 +165,7 @@ function App() {
         />
         <Route path="/" element={<Navigate to="/dashboard" replace />} />
       </Routes>
+      </AdminTutorialProvider>
     </BrowserRouter>
   );
 }

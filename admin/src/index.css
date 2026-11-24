@@ -21,3 +21,60 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
+
+.driver-popover.typetiles-tour-popover {
+  max-width: min(360px, calc(100vw - 24px));
+  border: 1px solid rgba(111, 159, 255, 0.65);
+  border-radius: 14px;
+  background: #141a3a;
+  color: #f8fafc;
+  box-shadow: 0 18px 50px rgba(2, 6, 23, 0.55);
+}
+
+.typetiles-tour-popover .driver-popover-title {
+  display: grid;
+  gap: 5px;
+  color: #fff;
+  font-size: 16px;
+}
+
+.typetiles-tour-progress {
+  color: #91dcff;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.typetiles-tour-title {
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.typetiles-tour-popover .driver-popover-description {
+  color: #d7e2f1;
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.typetiles-tour-popover .driver-popover-btn {
+  min-height: 34px;
+  border-radius: 7px;
+  font-size: 12px;
+}
+
+.typetiles-tour-popover .typetiles-tour-skip {
+  margin-right: auto;
+  border-color: rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.typetiles-tour-popover .driver-popover-next-btn {
+  border-color: #6a9eff;
+  background: #454ec3;
+}
+
+.typetiles-tour-popover .driver-popover-prev-btn {
+  border-color: rgba(255, 255, 255, 0.2);
+  background: transparent;
+}

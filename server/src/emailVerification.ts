@@ -110,6 +110,7 @@ export class EmailVerificationService {
       const result = await db.run("INSERT INTO users(username,email,password_hash,display_name,role,email_verified) VALUES(?,?,?,?,?,0)", input.username, input.email, passwordHash, input.displayName, input.role);
       if (typeof result.lastID !== "number") throw new Error("Registration failed");
       await db.run("INSERT INTO user_stats(user_id) VALUES(?)", result.lastID);
+      await db.run("INSERT INTO user_onboarding(user_id,status) VALUES(?,'eligible')", result.lastID);
       return this.issue(db, { id: result.lastID, email: input.email }, now);
     });
     // User/stats/code are committed first. Delivery cannot roll back the account.

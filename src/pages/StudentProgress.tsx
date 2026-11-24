@@ -42,7 +42,7 @@ export default function StudentProgress() {
     <section className="h-full overflow-y-auto pb-6">
       <header className="mb-4 rounded-2xl border border-[#2967a1] bg-[#11183d]/95 p-5">
         <Link to="/app/results" className="text-sm text-sky-300 hover:underline">Back to Results</Link>
-        <h1 className="mt-2 text-2xl font-semibold text-white">Student Progress</h1>
+        <h1 data-tour="teacher-progress-heading" className="mt-2 text-2xl font-semibold text-white">Student Progress</h1>
         <p className="mt-2 text-sm text-slate-300">Finished attempts in your completed classrooms only. Zero results count; averages ignore missing metrics. Session dates show when the classroom was created.</p>
       </header>
       <div className="grid min-w-0 gap-4 xl:grid-cols-[minmax(260px,1fr)_minmax(0,2fr)]">

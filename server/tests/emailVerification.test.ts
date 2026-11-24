@@ -73,6 +73,8 @@ test("email verification integration: isolated SQLite and mocked delivery", { ti
         assert.equal(result.status, 200);
         assert.equal(verifyToken(result.sessionToken)?.sessionVersion, 3);
         assert.equal(await me(result.sessionToken), 200);
+        const profile = await fetch(`http://127.0.0.1:${port}/api/auth/me`, { headers: { cookie: `typetiles_session=${result.sessionToken}` } });
+        assert.equal((await profile.json()).user.onboardingStatus, null);
       }
     });
 

@@ -9,8 +9,10 @@ import {
   updatePlayerProfile,
   type PlayerStats,
   type PlayerUser,
+  type OnboardingStatus,
   type RegistrationResponse,
   type RegistrationRole,
+  updatePlayerOnboardingStatus,
 } from "./playerApi";
 
 type RegisterInput = {
@@ -30,6 +32,7 @@ type PlayerAuthContextValue = {
   verificationEmail: string;
   verificationResendAt: number;
   clearPendingVerification: () => void;
+  updateOnboardingStatus: (status: Exclude<OnboardingStatus, "eligible">) => Promise<OnboardingStatus | null>;
   updateProfile: (input: { displayName?: string; avatar?: string; background?: string }) => Promise<void>;
   logout: () => Promise<void>;
 };
@@ -73,10 +76,10 @@ export function PlayerAuthProvider({ children }: { children: ReactNode }) {
       verificationResendAt,
       clearPendingVerification: () => { setVerificationEmail(""); setVerificationResendAt(0); },
       login: async (username, password) => {
-        const response = await loginPlayer(username, password);
-        await getCurrentPlayer(); // Confirm that the browser accepted the session cookie.
-        setUser(response.user);
-        setStats(null);
+        await loginPlayer(username, password);
+        const current = await getCurrentPlayer(); // Confirm that the browser accepted the session cookie.
+        setUser(current.user);
+        setStats(current.stats ?? null);
       },
       register: async (input) => {
         const response = await registerPlayer(input);
@@ -84,6 +87,11 @@ export function PlayerAuthProvider({ children }: { children: ReactNode }) {
         setVerificationEmail(input.email.trim().toLowerCase());
         setVerificationResendAt(Date.now() + 60_000);
         return response;
+      },
+      updateOnboardingStatus: async (status) => {
+        const response = await updatePlayerOnboardingStatus(status);
+        setUser((current) => current ? { ...current, onboardingStatus: response.status } : current);
+        return response.status;
       },
       updateProfile: async (input) => {
         const response = await updatePlayerProfile(input);

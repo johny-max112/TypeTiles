@@ -139,7 +139,9 @@ router.get("/me", authMiddleware, async (req: Request, res: Response) => {
   try {
     const db = getDatabase();
     const user = await db.get(
-      `SELECT id, username, email, display_name, avatar, background, tier, role FROM users WHERE id = ?`,
+      `SELECT u.id, u.username, u.email, u.display_name, u.avatar, u.background, u.tier, u.role,
+        o.status AS onboarding_status
+       FROM users u LEFT JOIN user_onboarding o ON o.user_id = u.id WHERE u.id = ?`,
       [req.user!.userId]
     );
 
@@ -159,12 +161,39 @@ router.get("/me", authMiddleware, async (req: Request, res: Response) => {
         background: user.background,
         tier: user.tier,
         role: normalizeRole(user.role),
+        onboardingStatus: user.onboarding_status ?? null,
       },
       stats,
     });
   } catch (error) {
     console.error("Get user error:", error);
     res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+router.patch("/me/onboarding", authMiddleware, async (req: Request, res: Response) => {
+  const status = req.body?.status;
+  if (status !== "completed" && status !== "skipped") {
+    return res.status(400).json({ error: "Onboarding status must be completed or skipped." });
+  }
+
+  try {
+    const db = getDatabase();
+    const existing = await db.get<{ user_id: number }>(
+      "SELECT user_id FROM user_onboarding WHERE user_id = ?",
+      [req.user!.userId],
+    );
+    if (!existing) return res.json({ status: null });
+
+    await db.run(
+      "UPDATE user_onboarding SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE user_id = ?",
+      status,
+      req.user!.userId,
+    );
+    res.json({ status });
+  } catch (error) {
+    console.error("Update onboarding status error:", error);
+    res.status(500).json({ error: "Unable to save onboarding status." });
   }
 });
 

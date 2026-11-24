@@ -44,6 +44,19 @@ already exist without its version record, it stops instead of changing them.
 On any SQL error, stop and share the error text (without credentials); do not
 delete tables or run a database reset to try to repair it.
 
+## First-time onboarding migration
+
+The backend now requires migration
+`supabase/migrations/20261124000100_first_time_user_onboarding.sql`. Apply this
+additive migration in the Supabase SQL Editor using the `postgres` role before
+deploying the matching backend version. It creates a private, RLS-enabled
+`user_onboarding` table but does not enroll existing accounts. New student and
+teacher registrations receive an `eligible` row in the same transaction as
+account creation; the authenticated user can later persist `completed` or
+`skipped`. The backend refuses to start against PostgreSQL until this migration
+marker is present. Do not run this against production as part of this code
+change.
+
 ## Validation performed locally
 
 The complete script was executed against an isolated in-memory PostgreSQL engine

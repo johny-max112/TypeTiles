@@ -21,7 +21,7 @@ export default function Leaderboard() {
   return (
     <section className="hud-panel rounded-[2rem] p-6">
       <div className="text-xs uppercase tracking-[0.35em] text-emerald-300">Global Ranks</div>
-      <h1 className="mt-2 text-4xl font-semibold text-white">Leaderboard</h1>
+      <h1 data-tour="leaderboard-heading" className="mt-2 text-4xl font-semibold text-white">Leaderboard</h1>
       <div className="mt-4 flex flex-wrap gap-2">
         {tiers.map((tier) => (
           <button key={tier} type="button" onClick={() => setSelectedTier(tier)} className={`rounded-full border px-4 py-2 text-white ${selectedTier === tier ? "border-emerald-400/60 bg-emerald-400/20" : "border-white/10 bg-white/5"}`}>{tier}</button>

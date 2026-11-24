@@ -8,8 +8,8 @@ import { generateToken } from "../src/auth.js";
 
 export async function registrationRoleChecks(db: ApplicationDatabase, base: string, wsUrl: string,
   sockets: WebSocket[], mail: { to: string; code: string }[]) {
-  const request = async (path: string, body?: object, token?: string) => {
-    const response = await fetch(base + path, { method: body ? "POST" : "GET",
+  const request = async (path: string, body?: object, token?: string, method?: "GET" | "POST" | "PATCH") => {
+    const response = await fetch(base + path, { method: method ?? (body ? "POST" : "GET"),
       headers: { "Content-Type": "application/json", Origin: "http://localhost:5173", "X-TypeTiles-Request": "1", ...(token ? { cookie: `typetiles_session=${token}` } : {}) },
       ...(body ? { body: JSON.stringify(body) } : {}),
     });
@@ -69,6 +69,14 @@ export async function registrationRoleChecks(db: ApplicationDatabase, base: stri
     assert.equal((await request("/auth/verify-email", { email, code })).status, 400);
     const login = await request("/auth/login", { username, password: input.password });
     assert.equal(login.status, 200); assert.equal(login.body.user.role, role ?? "student");
+    const profile = await request("/auth/me", undefined, login.sessionToken);
+    assert.equal(profile.status, 200);
+    assert.equal(profile.body.user.onboardingStatus, "eligible");
+    if (index === 0) {
+      assert.equal((await request("/auth/me/onboarding", { status: "invalid" }, login.sessionToken, "PATCH")).status, 400);
+      assert.equal((await request("/auth/me/onboarding", { status: "skipped" }, login.sessionToken, "PATCH")).body.status, "skipped");
+      assert.equal((await request("/auth/me", undefined, login.sessionToken)).body.user.onboardingStatus, "skipped");
+    }
     users.push({ id: user.id, token: login.sessionToken });
     const opposite = role === "teacher" ? "student" : "teacher";
     assert.equal((await request("/auth/register", { ...payload, role: opposite })).status, 409);

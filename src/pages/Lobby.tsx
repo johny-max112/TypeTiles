@@ -669,6 +669,7 @@ export default function Lobby() {
                     onSubmit={joinRoom}
                   >
                     <input
+                      data-tour="classroom-room-code"
                       value={roomCode}
                       onChange={(event) =>
                         setRoomCode(
@@ -735,6 +736,7 @@ export default function Lobby() {
             {user?.role === "teacher" ? (
               <button
                 type="button"
+                data-tour="teacher-classroom-lobby"
                 onClick={createRoom}
                 className="mt-5 inline-flex rounded-[7px] bg-[#00b878] px-5 py-3 font-semibold text-[#071c2a] transition hover:bg-[#21d395]"
               >
@@ -1025,7 +1027,7 @@ export default function Lobby() {
               <div className="mt-1 text-xs text-white/80">
                 Room Code:{" "}
                 <span className="font-bold tracking-[0.18em]">
-                  {room.roomCode}
+                  <span data-tour="teacher-classroom-lobby">{room.roomCode}</span>
                 </span>
 
                 <button

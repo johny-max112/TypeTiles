@@ -109,6 +109,25 @@ test("custom deck PostgreSQL migration is additive, snapshot-safe and idempotent
   }
 });
 
+test("onboarding PostgreSQL migration leaves legacy accounts unenrolled", async () => {
+  const engine = new PGlite();
+  try {
+    await engine.exec("CREATE ROLE anon; CREATE ROLE authenticated;");
+    await engine.exec(await readFile(new URL("../../supabase/migrations/20261018000100_initial_type_tiles.sql", import.meta.url), "utf8"));
+    await engine.exec(`INSERT INTO users(username,email,password_hash,display_name,role,email_verified)
+      VALUES('legacy-student','legacy-student@example.test','test-only','Legacy Student','student',1)`);
+    const migration = await readFile(new URL("../../supabase/migrations/20261124000100_first_time_user_onboarding.sql", import.meta.url), "utf8");
+    await engine.exec(migration);
+    await engine.exec(migration);
+    assert.equal((await engine.query("SELECT count(*)::int AS count FROM user_onboarding")).rows[0].count, 0);
+    assert.equal((await engine.query(
+      "SELECT version FROM public.typetiles_schema_migrations WHERE version='20261124000100'",
+    )).rows.length, 1);
+  } finally {
+    await engine.close();
+  }
+});
+
 test("PostgreSQL query binding and TLS configuration preserve API types", () => {
   assert.equal(postgresQuery("SELECT '?' AS literal, \"?\", $$?$$, $tag$?$tag$, ? -- ?\n, ? /* ? /* ? */ ? */"),
     "SELECT '?' AS literal, \"?\", $$?$$, $tag$?$tag$, $1 -- ?\n, $2 /* ? /* ? */ ? */");
@@ -157,6 +176,9 @@ test("PostgreSQL engine: registration, recovery, Solo/history, admin and LAN per
   const customDecksMigration = await readFile(new URL("../../supabase/migrations/20261123000100_custom_decks.sql", import.meta.url), "utf8");
   await engine.exec(customDecksMigration);
   await engine.exec(customDecksMigration);
+  const onboardingMigration = await readFile(new URL("../../supabase/migrations/20261124000100_first_time_user_onboarding.sql", import.meta.url), "utf8");
+  await engine.exec(onboardingMigration);
+  await engine.exec(onboardingMigration);
   // PGlite has one engine connection. Lease it exclusively for auth transactions.
   // Real deployed locking is provided by PostgreSQL's transaction advisory lock.
   let tail = Promise.resolve();
@@ -207,6 +229,11 @@ test("PostgreSQL engine: registration, recovery, Solo/history, admin and LAN per
       assert.equal((await request("/auth/verify-email", { email: mail[0].to, code: mail[0].code })).status, 400);
       const login = await request("/auth/login", { username: "pg-student", password: "old-password" });
       assert.equal(login.status, 200); token = login.sessionToken; studentId = login.body.user.id;
+      const profile = await request("/auth/me", undefined, token);
+      assert.equal(profile.body.user.onboardingStatus, "eligible");
+      const saved = await request("/auth/me/onboarding", { status: "skipped" }, token, "PATCH");
+      assert.equal(saved.body.status, "skipped");
+      assert.equal((await request("/auth/me", undefined, token)).body.user.onboardingStatus, "skipped");
       const user = await db.get("SELECT * FROM users WHERE id = ?", studentId);
       assert(user.email_verified_at > 1_000_000_000_000);
       await assert.rejects(() => databaseTransaction(async (transaction) => {

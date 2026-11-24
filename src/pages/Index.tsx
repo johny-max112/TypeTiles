@@ -6,6 +6,7 @@ import { canPreviewGreggCrops, resolveGreggSubmode } from "../lib/greggGameplay"
 import { usePlayerAuth } from "../lib/PlayerAuthContext";
 import { getPlayerHistory, getPlayerRank, type MatchHistoryRow, type PlayerStats } from "../lib/playerApi";
 import { getProfileAvatar, getProfileBackground } from "../lib/profileAssets";
+import { TutorialHelpButton } from "../components/OnboardingTour";
 
 const assetRoot = "/figma/type-tiles-home";
 
@@ -111,7 +112,10 @@ export default function Dashboard() {
     : "";
   return (
     <section className="flex h-full min-h-0 flex-col overflow-hidden pb-4">
-      <h1 className="shrink-0 px-1 text-[1.95rem] font-semibold tracking-[-0.03em] text-white sm:text-[2.15rem]">Welcome to Type Tiles!</h1>
+      <header className="flex shrink-0 items-center justify-between gap-3 px-1">
+        <h1 data-tour="welcome-title" className="text-[1.75rem] font-semibold tracking-[-0.03em] text-white sm:text-[2.15rem]">Welcome to Type Tiles!</h1>
+        <TutorialHelpButton />
+      </header>
 
       <article
         className="mt-4 shrink-0 rounded-[10px] border border-[#3d3d3d]/70 bg-[#c3d9ed] bg-cover bg-center px-4 py-3 text-slate-900 shadow-[0_20px_50px_rgba(5,8,24,0.35)]"
@@ -153,6 +157,7 @@ export default function Dashboard() {
         <div className="min-h-0 space-y-4">
           <button
             type="button"
+            data-tour="start-game"
             onClick={openCategoryPicker}
             className="flex h-[50px] w-full items-center justify-center rounded-[8px] border border-[#bde9ff] bg-[#7357f1] px-6 text-[1rem] font-medium text-white shadow-[0_14px_30px_rgba(80,63,220,0.35)] transition hover:brightness-110"
           >
@@ -162,19 +167,21 @@ export default function Dashboard() {
             <>
               <Link
                 to="/app/lobby"
+                data-tour="create-classroom-home"
                 className="flex h-[50px] w-full items-center justify-center rounded-[8px] border border-[#bde9ff] bg-[#7357f1] px-6 text-[1rem] font-medium text-white shadow-[0_14px_30px_rgba(80,63,220,0.35)] transition hover:brightness-110"
               >
                 Create Classroom
               </Link>
               <Link
                 to="/app/custom-decks"
+                data-tour="custom-decks-home"
                 className="flex h-[50px] w-full items-center justify-center rounded-[8px] border border-[#bde9ff] bg-[#2746a6] px-6 text-[1rem] font-medium text-white shadow-[0_14px_30px_rgba(39,70,166,0.35)] transition hover:brightness-110"
               >
                 Custom Decks
               </Link>
             </>
           ) : null}
-          <article className="rounded-[10px] border border-[#2967a1] bg-[#1d234a] p-4 shadow-[0_16px_30px_rgba(4,8,25,0.35)]">
+          <article data-tour="progress-stats" className="rounded-[10px] border border-[#2967a1] bg-[#1d234a] p-4 shadow-[0_16px_30px_rgba(4,8,25,0.35)]">
             <div className="space-y-4">
               {statItems.map((item) => (
                 <div key={item.label} className="grid grid-cols-[28px_1fr_auto] items-center gap-3">
@@ -209,6 +216,7 @@ export default function Dashboard() {
             {categories.map((category, index) => (
               <button
                 type="button"
+              data-tour={category.label === "COMMUNICATION" ? "category-grid" : undefined}
                 key={`${category.label}-${index}`}
                 onClick={() => {
                   if ("unavailable" in category && category.unavailable) {

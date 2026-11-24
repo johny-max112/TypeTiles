@@ -201,7 +201,7 @@ export default function Results() {
         ) : null}
 
         <article className="rounded-[1.2rem] border border-[#2967a1] bg-[#11183d]/95 p-3 shadow-[0_16px_35px_rgba(4,8,25,0.35)]">
-          <div className="text-[10px] uppercase tracking-[0.2em] text-sky-300">Match History</div>
+          <div data-tour="teacher-results-heading" className="text-[10px] uppercase tracking-[0.2em] text-sky-300">Match History</div>
           <div className="mt-2 flex gap-4 border-b border-white/10 text-[10px] uppercase tracking-[0.15em]">
             {(["solo", "multiplayer"] as const).map((tab) => (
               <button

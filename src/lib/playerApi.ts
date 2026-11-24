@@ -12,7 +12,10 @@ export type PlayerUser = {
   background?: string;
   tier: string;
   role: "student" | "teacher" | "admin";
+  onboardingStatus?: OnboardingStatus | null;
 };
+
+export type OnboardingStatus = "eligible" | "completed" | "skipped";
 
 export type PlayerStats = {
   games_played: number;
@@ -258,6 +261,13 @@ export function resetPlayerPassword(email: string, code: string, newPassword: st
 
 export function getCurrentPlayer(): Promise<MeResponse> {
   return request<MeResponse>("/auth/me");
+}
+
+export function updatePlayerOnboardingStatus(status: Exclude<OnboardingStatus, "eligible">): Promise<{ status: OnboardingStatus | null }> {
+  return authenticatedRequest<{ status: OnboardingStatus | null }>("/auth/me/onboarding", {
+    method: "PATCH",
+    body: JSON.stringify({ status }),
+  });
 }
 
 export function updatePlayerProfile(input: { displayName?: string; avatar?: string; background?: string }): Promise<{ user: PlayerUser }> {
