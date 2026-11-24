@@ -28,7 +28,7 @@ export const onboardingTours: Record<TutorialRole, TutorialStep[]> = {
       path: "/app",
       target: "start-game",
       title: "Start a Game",
-      description: "Choose Start Game to select a category and set up a solo typing session.",
+      description: "Start Game opens the setup panel. Choose a category, difficulty, falling-text format, and duration there before starting.",
       side: "bottom",
     },
     {
@@ -36,20 +36,6 @@ export const onboardingTours: Record<TutorialRole, TutorialStep[]> = {
       target: "category-grid",
       title: "Practice Categories",
       description: "Choose from the available typing categories. Some categories are marked as coming soon.",
-      side: "left",
-    },
-    {
-      path: "/app/play",
-      target: "practice-categories",
-      title: "Practice Modes",
-      description: "This setup page lets you choose a category and, where available, a word/phrase or full-sentence format.",
-      side: "bottom",
-    },
-    {
-      path: "/app/play",
-      target: "practice-difficulty",
-      title: "Choose a Difficulty",
-      description: "Easy, Normal, and Hard change the typing challenge. You can also choose a round duration before starting.",
       side: "left",
     },
     {
@@ -75,6 +61,20 @@ export const onboardingTours: Record<TutorialRole, TutorialStep[]> = {
     },
     {
       path: "/app",
+      target: "profile-nav",
+      title: "Open Your Profile",
+      description: "Choose Profile to customize your avatar and background. On a small screen, open Menu first.",
+      side: "right",
+    },
+    {
+      path: "/app/customize",
+      target: "profile-tabs",
+      title: "Customize Your Profile",
+      description: "Choose an avatar or upload a profile photo, select a background, then use Apply Changes to save.",
+      side: "bottom",
+    },
+    {
+      path: "/app",
       target: "help-tutorial",
       title: "Help and Tutorial",
       description: "Use this button any time to replay your role-specific walkthrough.",
@@ -86,7 +86,7 @@ export const onboardingTours: Record<TutorialRole, TutorialStep[]> = {
       path: "/app",
       target: "welcome-title",
       title: "Teacher Dashboard",
-      description: "Your dashboard provides practice, classroom, deck, and progress entry points.",
+      description: "Your dashboard provides classroom, deck, and progress entry points.",
       side: "bottom",
     },
     {
@@ -125,11 +125,18 @@ export const onboardingTours: Record<TutorialRole, TutorialStep[]> = {
       side: "bottom",
     },
     {
-      path: "/app/play",
-      target: "practice-difficulty",
-      title: "Solo Practice",
-      description: "You can also configure a solo practice session with the available categories, difficulty, format, and duration.",
-      side: "left",
+      path: "/app",
+      target: "profile-nav",
+      title: "Open Your Profile",
+      description: "Choose Profile to customize your avatar and background. On a small screen, open Menu first.",
+      side: "right",
+    },
+    {
+      path: "/app/customize",
+      target: "profile-tabs",
+      title: "Customize Your Profile",
+      description: "Choose an avatar or upload a profile photo, select a background, then use Apply Changes to save.",
+      side: "bottom",
     },
     {
       path: "/app",

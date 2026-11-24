@@ -143,7 +143,7 @@ export function OnboardingHost({ children }: { children: ReactNode }) {
     let active = true;
     let observer: MutationObserver | undefined;
     let timeout: number | undefined;
-    const targetName = step.target === "main-navigation" && window.innerWidth < 1024
+    const targetName = (step.target === "main-navigation" || step.target === "profile-nav") && window.innerWidth < 1024
       ? "mobile-menu"
       : step.target;
     const selector = `[data-tour="${targetName}"]`;

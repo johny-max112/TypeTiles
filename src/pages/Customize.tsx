@@ -116,7 +116,7 @@ export default function Customize() {
             </Link>
           )}
 
-          <div className="mt-2 flex h-[59px] rounded-[8px] border border-[#2967a1] bg-[#1d234a]">
+          <div data-tour="profile-tabs" className="mt-2 flex h-[59px] rounded-[8px] border border-[#2967a1] bg-[#1d234a]">
             <button type="button" onClick={() => setTab("avatar")} className={`relative flex-1 rounded-[8px] text-[18px] font-medium text-white ${tab === "avatar" ? "bg-[rgba(23,54,112,.7)] after:absolute after:bottom-[-8px] after:left-0 after:right-0 after:h-2 after:rounded-[8px] after:bg-[#6a9eff]" : ""}`} aria-selected={tab === "avatar"}>AVATAR</button>
             <button type="button" onClick={() => setTab("background")} className={`relative flex-1 rounded-[8px] text-[18px] font-medium text-white ${tab === "background" ? "bg-[rgba(23,54,112,.7)] after:absolute after:bottom-[-8px] after:left-0 after:right-0 after:h-2 after:rounded-[8px] after:bg-[#6a9eff]" : ""}`} aria-selected={tab === "background"}>BACKGROUND</button>
           </div>

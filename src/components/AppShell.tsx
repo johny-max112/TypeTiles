@@ -72,6 +72,7 @@ export function AppShell() {
               <NavLink
                 key={item.to}
                 to={item.to}
+                data-tour={item.to === "/app/customize" ? "profile-nav" : undefined}
                 end={Boolean((item as any).end)}
                 onClick={() => setOpen(false)}
                 className={({ isActive }) =>
