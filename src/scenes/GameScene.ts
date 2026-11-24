@@ -42,6 +42,17 @@ export type GamePerformance = {
   tileY?: number;
   remainingTime?: number;
   status?: "playing" | "paused" | "completed";
+  tiles?: GameMirrorTile[];
+};
+
+export type GameMirrorTile = {
+  id: string;
+  text: string;
+  typedPrefix: string;
+  x: number;
+  y: number;
+  speed: number;
+  state: "active" | "cleared" | "missed";
 };
 
 type GameSceneInitData = {
@@ -121,6 +132,10 @@ export default class GameScene extends Phaser.Scene {
   private wordX = 0;
   private wordY = 60;
   private lastLane: Lane = "center";
+  private activeTileId = "";
+  private activeTileSerial = 0;
+  private activeTileState: "active" | "cleared" | "missed" = "active";
+  private activeTileStateResetPending = false;
 
   constructor() {
     super("GameScene");
@@ -352,6 +367,13 @@ export default class GameScene extends Phaser.Scene {
   }
 
   private spawnWord(): void {
+    if (this.activeTileStateResetPending) {
+      this.activeTileState = "active";
+      this.activeTileStateResetPending = false;
+    }
+    this.activeTileSerial += 1;
+    this.activeTileId = `tile-${this.activeTileSerial}`;
+    this.activeTileState = "active";
     if (this.isGreggGameplay) {
       const prompts = this.greggTargets();
       if (!prompts.length || prompts.some((prompt) => !this.textures.exists(this.greggTextureKey(prompt.textureId)))) {
@@ -605,6 +627,9 @@ export default class GameScene extends Phaser.Scene {
 
       if (this.typedText.toLowerCase() === this.activeWord.toLowerCase()) {
         this.waterEffects.playSplash(this.wordX, this.wordY, 22);
+        this.activeTileState = "cleared";
+        this.reportPerformance(true);
+        this.activeTileStateResetPending = true;
 
         this.score += 10;
         this.completedWords += 1;
@@ -645,6 +670,9 @@ export default class GameScene extends Phaser.Scene {
   }
 
   private onMissBottom(): void {
+    this.activeTileState = "missed";
+    this.reportPerformance(true);
+    this.activeTileStateResetPending = true;
     this.lives = Math.max(0, this.lives - 1);
     this.score -= 5;
     if (this.lives === 0) {
@@ -740,6 +768,17 @@ export default class GameScene extends Phaser.Scene {
       tileY: this.scale.height > 0 ? this.wordY / this.scale.height : 0,
       remainingTime: Math.max(0, Math.ceil(this.remainingSeconds)),
       status: this.gameOver ? "completed" : this.pauseMenu.isPaused ? "paused" : "playing",
+      tiles: this.activeWord
+        ? [{
+            id: this.activeTileId,
+            text: this.activeWord,
+            typedPrefix: this.typedText,
+            x: this.scale.width > 0 ? this.wordX / this.scale.width : 0,
+            y: this.scale.height > 0 ? this.wordY / this.scale.height : 0,
+            speed: this.fallSpeedPxPerSec / Math.max(1, this.scale.height),
+            state: this.activeTileState,
+          }]
+        : [],
     });
   }
 

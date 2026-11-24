@@ -17,6 +17,16 @@ export type ClassroomRankUpdate = ClassroomStanding & {
   maxStudents: number;
 };
 
+export type PartnerPovTile = {
+  id: string;
+  text: string;
+  typedPrefix: string;
+  x: number;
+  y: number;
+  speed: number;
+  state: "active" | "cleared" | "missed";
+};
+
 export type PartnerPovState = {
   userId: number;
   displayName: string;
@@ -24,6 +34,7 @@ export type PartnerPovState = {
   typedPrefix: string;
   tileX: number;
   tileY: number;
+  tiles: PartnerPovTile[];
   lives: number;
   score: number;
   wpm: number;

@@ -39,6 +39,7 @@ type ClientMessage = {
   tileY?: number;
   remainingTime?: number;
   status?: "playing" | "paused" | "completed";
+  tiles?: unknown[];
 };
 
 type Player = {
@@ -71,6 +72,15 @@ type PartnerPovState = {
   typedPrefix: string;
   tileX: number;
   tileY: number;
+  tiles: Array<{
+    id: string;
+    text: string;
+    typedPrefix: string;
+    x: number;
+    y: number;
+    speed: number;
+    state: "active" | "cleared" | "missed";
+  }>;
   lives: number;
   score: number;
   wpm: number;
@@ -216,6 +226,8 @@ function partnerAssignment(room: Room, userId: number) {
 
 function sendPartnerAssignment(room: Room, student: Player) {
   if (!student.userId) return;
+  const partner = partnerAssignment(room, student.userId);
+  if (process.env.NODE_ENV !== "production") console.debug("[PartnerPOV] assignment", room.code, student.userId, partner?.userId ?? null);
   send(student.socket, {
     type: "partner_assignment",
     partner: partnerAssignment(room, student.userId),
@@ -245,6 +257,7 @@ function forwardPartnerStatus(room: Room, player: Player, status: "disconnected"
           typedPrefix: "",
           tileX: 0,
           tileY: 0,
+          tiles: [],
           lives: player.performance?.lives ?? 3,
           score: player.performance?.score ?? 0,
           wpm: player.performance?.wpm ?? 0,
@@ -662,7 +675,7 @@ export function attachLanServer(server: import("http").Server,
         if (message.type === "join_room") {
           const room = message.roomCode ? rooms.get(message.roomCode.trim().toUpperCase()) : undefined;
           if (!room) {
-            send(socket, { type: "error", message: "Room not found. Check the room code." });
+            send(socket, { type: "error", roomCode: message.roomCode?.trim().toUpperCase(), message: "Room not found. Check the room code." });
             return;
           }
           const identity = await authenticatePlayer(connectionToken);
@@ -805,7 +818,16 @@ export function attachLanServer(server: import("http").Server,
           rooms.delete(room.code);
           clearRoomTimers(room);
           ownedRooms.delete(room);
-          for (const participant of room.players.values()) participant.socket.close();
+          for (const participant of room.players.values()) {
+            if (participant.isHost) {
+              room.players.delete(participant.id);
+              participant.isHost = false;
+              participant.ready = false;
+            } else {
+              leaveRoom(participant, true);
+              participant.socket.close();
+            }
+          }
         } else if (message.type === "leave_room") {
           if (player.isHost && room.started && room.dbMatchId) {
             const identity = await authenticatePlayer(player.token);
@@ -931,6 +953,37 @@ export function attachLanServer(server: import("http").Server,
             send(socket, { type: "error", message: "Invalid partner preview update." });
             return;
           }
+          if (!Array.isArray(message.tiles) || message.tiles.length > 4) {
+            send(socket, { type: "error", message: "Invalid partner preview tiles." });
+            return;
+          }
+          const tiles: PartnerPovState["tiles"] = [];
+          for (const rawTile of message.tiles as unknown[]) {
+            if (!rawTile || typeof rawTile !== "object") {
+              send(socket, { type: "error", message: "Invalid partner preview tile." });
+              return;
+            }
+            const tile = rawTile as Record<string, unknown>;
+            if (typeof tile.id !== "string" || tile.id.length > 64
+              || typeof tile.text !== "string" || tile.text.length > 500
+              || typeof tile.typedPrefix !== "string" || tile.typedPrefix.length > 500
+              || typeof tile.x !== "number" || typeof tile.y !== "number" || typeof tile.speed !== "number"
+              || !Number.isFinite(tile.x) || !Number.isFinite(tile.y) || !Number.isFinite(tile.speed)
+              || tile.x < 0 || tile.x > 1 || tile.y < 0 || tile.y > 1 || tile.speed < 0 || tile.speed > 2
+              || typeof tile.state !== "string" || !["active", "cleared", "missed"].includes(tile.state)) {
+              send(socket, { type: "error", message: "Invalid partner preview tile." });
+              return;
+            }
+            tiles.push({
+              id: tile.id,
+              text: tile.text,
+              typedPrefix: tile.typedPrefix,
+              x: tile.x,
+              y: tile.y,
+              speed: tile.speed,
+              state: tile.state as "active" | "cleared" | "missed",
+            });
+          }
           const performance = player.performance;
           const state: PartnerPovState = {
             userId: player.userId,
@@ -939,6 +992,7 @@ export function attachLanServer(server: import("http").Server,
             typedPrefix,
             tileX,
             tileY,
+            tiles,
             lives: performance?.lives ?? 3,
             score: performance?.score ?? 0,
             wpm: performance?.wpm ?? 0,
@@ -949,6 +1003,7 @@ export function attachLanServer(server: import("http").Server,
           };
           room.partnerStates.set(player.userId, state);
           if (partner.socket.readyState === WebSocket.OPEN) {
+            if (process.env.NODE_ENV !== "production") console.debug("[PartnerPOV] relay", room.code, player.userId, partnerId);
             send(partner.socket, { type: "partner_pov_update", state });
           }
         } else if (message.type === "score_update") {

@@ -48,6 +48,7 @@ export default function Game({
   const joinedRoomRef = useRef(false);
   const latestPerformanceRef =
     useRef<GamePerformance | null>(null);
+  const partnerSendRef = useRef<number>(0);
 
   const [multiplayerResult, setMultiplayerResult] =
     useState<GameResult | null>(null);
@@ -89,6 +90,7 @@ export default function Game({
 
     let disposed = false;
     let reconnectTimer: ReturnType<typeof setTimeout> | undefined;
+    let partnerPovTimer: ReturnType<typeof setInterval> | undefined;
     let reconnectAttempts = 0;
     const connect = () => {
       let socket: WebSocket;
@@ -130,6 +132,7 @@ export default function Game({
           setPartnerAssignmentResolved(true);
         }
         if (message.type === "partner_pov_update" && message.state) {
+          if (import.meta.env.DEV) console.debug("[PartnerPOV] incoming", message.state.userId, message.state.tiles.length);
           setPartnerPov(message.state);
         }
 
@@ -143,6 +146,24 @@ export default function Game({
           joinedRoomRef.current = true;
           reconnectAttempts = 0;
           setClassroomError("");
+          clearInterval(partnerPovTimer);
+          partnerPovTimer = setInterval(() => {
+            if (disposed || socket.readyState !== WebSocket.OPEN) return;
+            const performance = latestPerformanceRef.current;
+            if (!performance || performance.finished) return;
+            if (import.meta.env.DEV) console.debug("[PartnerPOV] outgoing", performance.tiles?.length ?? 0);
+            socket.send(JSON.stringify({
+              type: "partner_pov_update",
+              roomCode,
+              target: performance.target ?? "",
+              typedPrefix: performance.typedPrefix ?? "",
+              tileX: performance.tileX ?? 0,
+              tileY: performance.tileY ?? 0,
+              remainingTime: performance.remainingTime ?? 0,
+              status: performance.status ?? "playing",
+              tiles: performance.tiles ?? [],
+            }));
+          }, 100);
 
           if (latestPerformanceRef.current) {
             socket.send(
@@ -163,6 +184,7 @@ export default function Game({
                 tileY: performance.tileY ?? 0,
                 remainingTime: performance.remainingTime ?? 0,
                 status: performance.status ?? "playing",
+                tiles: performance.tiles ?? [],
               })
             );
           }
@@ -208,6 +230,7 @@ export default function Game({
     return () => {
       disposed = true;
       clearTimeout(reconnectTimer);
+      clearInterval(partnerPovTimer);
       socketRef.current?.close();
       socketRef.current = null;
       joinedRoomRef.current = false;
@@ -241,6 +264,10 @@ export default function Game({
         ...performance,
       })
     );
+
+    const now = Date.now();
+    if (now - partnerSendRef.current < 100) return;
+    partnerSendRef.current = now;
     socketRef.current.send(
       JSON.stringify({
         type: "partner_pov_update",
@@ -251,6 +278,7 @@ export default function Game({
         tileY: performance.tileY ?? 0,
         remainingTime: performance.remainingTime ?? 0,
         status: performance.status ?? "playing",
+        tiles: performance.tiles ?? [],
       })
     );
   };

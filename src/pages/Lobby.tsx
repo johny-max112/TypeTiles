@@ -54,6 +54,7 @@ type SocketMessage = RoomState & {
   wordSequence?: string[];
   startAt?: number;
   players?: Standing[];
+  roomCode?: string;
 };
 
 function defaultHost(): string {
@@ -70,6 +71,8 @@ export default function Lobby() {
   const pendingAfterReconnectRef = useRef<object | null>(null);
   const activeMatchRef = useRef(false);
   const connectedHostRef = useRef<string | null>(null);
+  const activeRoomCodeRef = useRef<string | null>(null);
+  const manualJoinInProgressRef = useRef(false);
 
   const hostAddress = defaultHost(); // Internal route identity, never editable/displayed.
 
@@ -154,7 +157,7 @@ export default function Lobby() {
 
       if (message.type === "room_state") {
         setRoom(message);
-
+        activeRoomCodeRef.current = message.roomCode;
         setRoomCode(message.roomCode);
         localStorage.setItem(LAN_ROOM_CODE_KEY, message.roomCode);
         localStorage.setItem(CLASSROOM_ENDPOINT_KEY, endpoint.backendOrigin);
@@ -188,6 +191,8 @@ export default function Lobby() {
         message.type === "room_created" ||
         message.type === "room_joined"
       ) {
+        activeRoomCodeRef.current = message.roomCode;
+        manualJoinInProgressRef.current = false;
         setRoomCode(message.roomCode);
         localStorage.setItem(LAN_ROOM_CODE_KEY, message.roomCode);
         localStorage.setItem(CLASSROOM_ENDPOINT_KEY, endpoint.backendOrigin);
@@ -223,6 +228,8 @@ export default function Lobby() {
       }
 
       if (message.type === "room_cancelled") {
+        if (message.roomCode && activeRoomCodeRef.current && message.roomCode !== activeRoomCodeRef.current) return;
+        activeRoomCodeRef.current = null;
         setRoom(null);
         setWordSequence([]);
         setStandings([]);
@@ -252,6 +259,16 @@ export default function Lobby() {
             : message.message || "Unable to connect to the room.";
 
         if (text.includes("Room not found")) {
+          if (message.roomCode && roomCode.trim().toUpperCase() !== message.roomCode) {
+            return;
+          }
+          const staleRequestedCode = activeRoomCodeRef.current;
+          if (manualJoinInProgressRef.current && staleRequestedCode
+            && roomCode.trim().toUpperCase() !== staleRequestedCode) {
+            manualJoinInProgressRef.current = false;
+            return;
+          }
+          manualJoinInProgressRef.current = false;
           setRoom(null);
           setWordSequence([]);
           setStandings([]);
@@ -374,6 +391,7 @@ export default function Lobby() {
   useEffect(() => {
     const saved = getSavedClassroomConnection(localStorage);
     if (!saved) return;
+    if (manualJoinInProgressRef.current) return;
     try { getBackendEndpoints(saved.hostAddress); }
     catch {
       localStorage.removeItem(LAN_ROOM_CODE_KEY);
@@ -479,10 +497,14 @@ export default function Lobby() {
       setError("Enter a room code first.");
       return;
     }
+    manualJoinInProgressRef.current = true;
+    pendingAfterReconnectRef.current = null;
+    const requestedCode = roomCode.trim().toUpperCase();
+    setRoomCode(requestedCode);
 
     send({
       type: "join_room",
-      roomCode,
+      roomCode: requestedCode,
     });
   };
 
